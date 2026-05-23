@@ -6,7 +6,7 @@ from app.api.schemas.slug import SlugBase
 from app.api.repo.base import BaseRepository
 
 
-class UserRepository(BaseRepository[SlugBase, Slug]):
+class SlugRepository(BaseRepository[SlugBase, Slug]):
     model = Slug
 
     def _entity_to_model(entity: SlugBase) -> model:

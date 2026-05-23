@@ -6,7 +6,7 @@ from app.api.schemas.url import UrlBase
 from app.api.repo.base import BaseRepository
 
 
-class UserRepository(BaseRepository[UrlBase, Url]):
+class UrlRepository(BaseRepository[UrlBase, Url]):
     model = Url
 
     def _entity_to_model(entity: UrlBase) -> model:
