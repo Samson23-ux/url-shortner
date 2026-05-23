@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     # test db
     ASYNC_TEST_DB_URL: str
 
+    # Argon2
+    ARGON2_PASSWORD_PEPPER: str
+
+    # JWT
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_TIME: int = 3
+    REFRESH_TOKEN_EXPIRE_TIME: int = 1
+    ACCESS_TOKEN_SECRET_KEY: str
+    REFRESH_TOKEN_SECRET_KEY: str
+
 @lru_cache(maxsize=1)
 def get_settings():
     return Settings()
