@@ -12,8 +12,8 @@ class UserRepository(BaseRepository[UserBase, User]):
     def _entity_to_model(entity: UserBase) -> model:
         return User(**entity.model_dump())
 
-    def _model_to_entity(model: User) -> UserBase:
-        return UserBase.model_validate(model)
+    def _model_to_entity(model: User, entity: UserBase) -> UserBase:
+        return entity.model_validate(model)
 
     def _get_filters(self, **filters) -> list[Any]:
         filter_conditions = []

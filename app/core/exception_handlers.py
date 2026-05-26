@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 
-from app.core.exceptions import ServerError, AuthenticationError, create_exception_handler
+from app.core.exceptions import create_exception_handler, ServerError, AuthenticationError, InvalidSlugError
 
 class ExceptionHandler:
     def __init__(self, app: FastAPI):
@@ -26,6 +26,17 @@ class ExceptionHandler:
                 initial_detail={
                     "status": "error",
                     "message": "User not authenticated."
+                }
+            )
+        )
+
+        self._app.add_exception_handler(
+            InvalidSlugError,
+            create_exception_handler(
+                status_code=400,
+                initial_detail={
+                    "status": "error",
+                    "message": "{slug} is not a valid slug"
                 }
             )
         )

@@ -2,17 +2,17 @@ from typing import Any
 
 
 from app.api.models.url import Url
-from app.api.schemas.url import UrlBase
 from app.api.repo.base import BaseRepository
+from app.api.schemas.analytics import AnalyticsBase
 
 
-class UrlRepository(BaseRepository[UrlBase, Url]):
+class AnalyticsRepository(BaseRepository[AnalyticsBase, Url]):
     model = Url
 
-    def _entity_to_model(entity: UrlBase) -> model:
+    def _entity_to_model(entity: AnalyticsBase) -> model:
         return Url(**entity.model_dump())
 
-    def _model_to_entity(model: Url, entity: UrlBase) -> UrlBase:
+    def _model_to_entity(model: Url, entity: AnalyticsBase) -> AnalyticsBase:
         return entity.model_validate(model)
 
     def _get_filters(self, **filters) -> list[Any]:
@@ -28,9 +28,4 @@ class UrlRepository(BaseRepository[UrlBase, Url]):
         return filter_conditions
 
     def _get_sort_fields(self, sort: str) -> list[Any]:
-        sortable_fields: dict = {
-            "created_at": self.model.created_at,
-            "last_updated_at": self.model.last_updated_at,
-            "expire_at": self.model.expire_at
-        }
-        return [sortable_fields.get(sort, self.model.created_at)]
+        pass

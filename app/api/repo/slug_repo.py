@@ -12,8 +12,8 @@ class SlugRepository(BaseRepository[SlugBase, Slug]):
     def _entity_to_model(entity: SlugBase) -> model:
         return Slug(**entity.model_dump())
 
-    def _model_to_entity(model: Slug) -> SlugBase:
-        return SlugBase.model_validate(model)
+    def _model_to_entity(model: Slug, entity: SlugBase) -> SlugBase:
+        return entity.model_validate(model)
 
     def _get_filters(self, **filters) -> list[Any]:
         filter_conditions = []

@@ -18,7 +18,7 @@ from app.api.models.base import Base
 class Slug(Base):
     __tablename__ = "slugs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID, default=text("uuid_generate_v7()"))
+    id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("users.id", name="slugs_user_id_fk", ondelete="CASCADE")
     )

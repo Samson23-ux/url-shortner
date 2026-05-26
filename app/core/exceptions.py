@@ -18,6 +18,13 @@ class AuthenticationError(AppException):
     pass
 
 
+class InvalidSlugError(AppException):
+    """Invalid slug name for url"""
+
+    def __init__(self, slug: str):
+        self.slug = slug
+
+
 def create_exception_handler(
     status_code: int, initial_detail: dict
 ) -> callable[[Request, AppException], JSONResponse]:
