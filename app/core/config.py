@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_SECRET_KEY: str
     REFRESH_TOKEN_SECRET_KEY: str
 
+    # redis
+    REDIS_URL: str
+
 @lru_cache(maxsize=1)
 def get_settings():
     return Settings()
