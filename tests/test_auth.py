@@ -1,6 +1,11 @@
 import httpx
 import pytest
+from uuid import uuid7
 from unittest.mock import patch, AsyncMock
+from datetime import datetime, timezone, timedelta
+
+
+from app.api.models.otp import Otp
 
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -274,7 +279,6 @@ class PasswordUpdateAndReset:
 
         password_reset_payload: dict = {
             "email": "user@example.com",
-            "new_password": "new_test_user_password",
         }
 
         with patch(path, new_callable=AsyncMock) as email_patch:
@@ -286,17 +290,65 @@ class PasswordUpdateAndReset:
 
         email_patch.assert_called_once()
 
+        assert res.status_code == 200
+
+        ## verify
+
+        otp_path: str = "app.api.services.auth_service._otp_repo.get_record"
+        update_path: str = "app.api.services.auth_service._otp_repo.add"
+
+        fake_otp: Otp = Otp(
+            id=uuid7(),
+            otp="test_otp_token",
+            user_id=uuid7(),
+            purpose="password_reset",
+            status="valid",
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=15)
+        )
+
+        otp_payload: dict = {
+            "email": "user@example.com",
+            "otp_token": "test_otp_token",
+            "password": "new_test_user_password"
+        }
+
+        with (
+            patch(otp_path, new_callable=AsyncMock) as otp_patch,
+            patch(update_path, new_callable=AsyncMock) as update_patch
+        ):
+            otp_patch.return_value = fake_otp
+
+            res: httpx.Response = await async_client.post(
+                "/auth/verify",
+                json=otp_payload,
+                headers={"env": "test"},
+            )
+
+        otp_patch.assert_awaited_once()
+        update_patch.assert_awaited_once()
+
+        # login with new password
+        login_payload: dict = {
+            "username": "user@example.com",
+            "password": "test_user_password",
+        }
+
+        res: httpx.Response = await async_client.post(
+            "/auth/login",
+            json=login_payload,
+            headers={"env": "test"},
+        )
+
         json_res = res.json()
 
-        assert res.status_code == 200
-        assert json_res["data"]["email"] == "user@example.com"
+        assert res.status_code == 201
+        assert "access_token" in json_res["data"]
 
     async def test_invalid_email_reset_password(
         self, async_client: httpx.AsyncClient, verify_user: httpx.Response
     ):
         password_reset_payload: dict = {
             "email": "user@example123.com",
-            "new_password": "new_test_user_password",
         }
 
         res: httpx.Response = await async_client.post(

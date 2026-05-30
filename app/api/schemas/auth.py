@@ -1,4 +1,7 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
+
+
+from app.api.models.user import UserType
 
 
 class AuthBase(BaseModel):
@@ -7,6 +10,7 @@ class AuthBase(BaseModel):
 
 class TokenData(AuthBase):
     email: str
+    user_type: UserType
 
 
 class Token(AuthBase):
@@ -17,6 +21,11 @@ class Token(AuthBase):
 class EmailVerify(AuthBase):
     email: str
     otp_code: str
+    password: str = Field(
+        default=None,
+        min_length=8,
+        description="A password value should be passed for password reset"
+    )
 
 
 class ResendOtp(AuthBase):
@@ -25,7 +34,7 @@ class ResendOtp(AuthBase):
 
 class EmailLogin(AuthBase):
     email: str
-    password: str
+    password: str = Field(..., min_length=8)
 
 
 class PasswordUpdate(AuthBase):
@@ -35,7 +44,6 @@ class PasswordUpdate(AuthBase):
 
 class PasswordReset(AuthBase):
     email: EmailStr
-    new_password: str
 
 
 class SignUpResponse(BaseModel):

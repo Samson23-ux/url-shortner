@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     # redis
     REDIS_URL: str
 
+    # sentry
+    SENTRY_SDK_DSN: str
+
+    # google oauth
+    CLIENT_ID: str
+    CLIENT_SECRET: str
+
+    # session middleware
+    SESSION_SECRET_KEY: str
+
+    # get shortened url
+    URL_EXPIRE_TIME: int
+    SHORTEN_URL: str = "http://localhost:8000/api/v1/shorten"
+
 @lru_cache(maxsize=1)
 def get_settings():
     return Settings()

@@ -6,6 +6,7 @@ from jose import jwt, JWTError
 from binascii import Error as binascii_error
 from pwdlib.hashers.argon2 import Argon2Hasher
 from datetime import datetime, timezone, timedelta
+from authlib.integrations.starlette_client import OAuth
 
 
 from app.core.config import get_settings
@@ -14,6 +15,20 @@ from app.api.schemas.auth import TokenData
 
 settings = get_settings()
 arg2_hasher = Argon2Hasher()
+
+
+# oauth2
+oauth: OAuth = OAuth()
+
+oauth.register(
+    name="google",
+    client_id=settings.CLIENT_ID,
+    client_secret=settings.CLIENT_SECRET,
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={
+        "scope": "openid email",
+    },
+)
 
 
 async def encode_cursor(payload: dict) -> str:
@@ -59,6 +74,7 @@ async def create_access_token(
         "sub": token_data.email,
         "exp": expire_time,
         "iat": datetime.now(timezone.utc),
+        "usertype": token_data.user_type,
     }
 
     token: str = jwt.encode(
@@ -78,15 +94,14 @@ async def create_refresh_token(
             days=settings.REFRESH_TOKEN_EXPIRE_TIME
         )
     else:
-        expire_time: datetime = datetime.now(timezone.utc) + timedelta(
-            minutes=expire_time
-        )
+        expire_time: datetime = datetime.now(timezone.utc) + timedelta(days=expire_time)
 
     payload: dict = {
         "sub": token_data.email,
         "exp": expire_time,
         "iat": datetime.now(timezone.utc),
         "jti": str(uuid4()),
+        "usertype": token_data.user_type,
     }
 
     token: str = jwt.encode(
@@ -95,7 +110,7 @@ async def create_refresh_token(
         algorithm=settings.JWT_ALGORITHM,
     )
 
-    return token, payload["jti"], expire_time
+    return token, payload["jti"], payload["usertype"]
 
 
 async def decode_token(token: str, key: str):
@@ -106,3 +121,22 @@ async def decode_token(token: str, key: str):
         return payload
     except JWTError:
         return None
+
+
+async def prepare_tokens(token_data: TokenData):
+    access_token: str = await create_access_token(token_data)
+    refresh_token, refresh_token_id, user_type = await create_refresh_token(token_data)
+
+    refresh_token_expire_time: int = (
+        get_settings().REFRESH_TOKEN_EXPIRE_TIME * 24 * 3600
+    )
+
+    refresh_token_payload: dict = {
+        "email": token_data.email,
+        "user_type": user_type,
+        "refresh_token_id": refresh_token_id,
+        "refresh_token": refresh_token,
+        "refresh_token_expire_time": refresh_token_expire_time,
+    }
+
+    return access_token, refresh_token_payload

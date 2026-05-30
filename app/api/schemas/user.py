@@ -18,12 +18,12 @@ class UserBase(BaseModel):
 
 
 class GoogleUser(UserBase):
-    google_id: str
-    google_email: EmailStr
+    google_id: Optional[str] = None
+    google_email: Optional[EmailStr] = None
 
 
 class EmailUser(UserBase):
-    email: EmailStr
+    email: Optional[EmailStr] = None
 
 
 class UserInDB(UserBase, GoogleUser, EmailUser):
@@ -36,4 +36,3 @@ class GoogleUserResponse(GoogleUser):
 
 class EmailUserResponse(EmailUser):
     id: UUID
-

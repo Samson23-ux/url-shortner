@@ -12,14 +12,15 @@ class OtpRepository(BaseRepository[AuthBase, Otp]):
     def _entity_to_model(entity: AuthBase) -> model:
         return Otp(**entity.model_dump())
 
-    def _model_to_entity(model: Otp, entity: AuthBase) -> AuthBase:
-        return entity.model_validate(model)
-
     def _get_filters(self, **filters) -> list[Any]:
         filter_conditions = []
 
         if "otp" in filters:
             filter_conditions.append(self.model.otp == filters["otp"])
+        if "user_id" in filters:
+            filter_conditions.append(self.model.user_id == filters["user_id"])
+        if "status" in filters:
+            filter_conditions.append(self.model.status == filters["status"])
 
         return filter_conditions
 

@@ -1,9 +1,9 @@
+from datetime import datetime
 from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import TypeVar, Generic, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Sequence, desc, asc
+from typing import TypeVar, Generic, Any, Optional
+from sqlalchemy import select, Sequence, desc, asc, update
 
 
 from app.api.models.base import Base
@@ -20,8 +20,11 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
     model: type[SqlalchemyModel]
 
-    def add(self, entity: Entity):
-        model: SqlalchemyModel = self._entity_to_model(entity)
+    def add(
+        self, entity: Optional[Entity] = None, model: Optional[SqlalchemyModel] = None
+    ):
+        if not model:
+            model: SqlalchemyModel = self._entity_to_model(entity)
         self._session.add(model)
 
     async def flush(self):
@@ -36,11 +39,16 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
     async def rollback(self):
         await self._session.rollback()
 
+    async def close(self):
+        await self._session.aclose()
+
     async def delete(self, model: SqlalchemyModel):
         await self._session.delete(model)
         await self._session.flush()
 
-    async def get_record(self, model: SqlalchemyModel, **filters) -> SqlalchemyModel:
+    async def get_record(
+        self, model: SqlalchemyModel, **filters
+    ) -> SqlalchemyModel | None:
         filter_conditions: list[Any] = self._get_filters(**filters)
 
         res = await self._session.execute(select(model).where(*filter_conditions))
@@ -104,15 +112,27 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
         return {"data": records[:limit], "cursor": next_cursor if has_more else None}
 
+    async def _get_records(
+        self,
+        model: SqlalchemyModel,
+        **filters,
+    ) -> Sequence[SqlalchemyModel]:
+        filter_conditions: list[Any] = self._get_filters(**filters)
+        res = await self._session.execute(select(model).where(*filter_conditions))
+        return res.scalars().all()
+
+    async def update_records(
+        self, model: SqlalchemyModel, fields_to_update: dict[str, Any], **filters
+    ):
+        filter_conditions: list[Any] = self._get_filters(**filters)
+        await self._session.execute(
+            update(model).where(*filter_conditions).values(fields_to_update)
+        )
+
     @staticmethod
     @abstractmethod
     def _entity_to_model(entity: Entity) -> SqlalchemyModel:
         raise NotImplementedError("Subclasses must implement _entity_to_model method")
-
-    @staticmethod
-    @abstractmethod
-    def _model_to_entity(model: SqlalchemyModel) -> Entity:
-        raise NotImplementedError("Subclasses must implement _model_to_entity method")
 
     @abstractmethod
     def _get_filters(self, **filters) -> list[Any]:

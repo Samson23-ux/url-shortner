@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -23,6 +25,84 @@ class InvalidSlugError(AppException):
 
     def __init__(self, slug: str):
         self.slug = slug
+
+
+class UserExistsError(AppException):
+    """User already exists"""
+
+    def __init__(self, user_email: str):
+        self.user_email = user_email
+
+
+class UserNotFoundError(AppException):
+    """User not found"""
+
+    def __init__(self, user_email: str):
+        self.user_email = user_email
+
+
+class InvalidOtpError(AppException):
+    """Invalid otp received"""
+
+    pass
+
+
+class CredentialError(AppException):
+    """wrong credentials provided"""
+
+    pass
+
+
+class PasswordMissingError(AppException):
+    """password not set for password reset"""
+
+    pass
+
+
+class UrlExistsError(AppException):
+    """Url already exists"""
+
+    def __init__(self, url: str):
+        self.url = url
+
+
+class SlugExistsError(AppException):
+    """Url already exists"""
+
+    def __init__(self, slug: str):
+        self.slug = slug
+
+
+class UrlsNotFoundError(AppException):
+    """Urls not found"""
+
+    pass
+
+
+class UrlNotFoundError(AppException):
+    """Url not found"""
+
+    def __init__(self, slug: str):
+        self.slug = slug
+
+
+class SlugsNotFoundError(AppException):
+    """Slugs not found"""
+
+    pass
+
+class SlugNotFoundError(AppException):
+    """Slug not found"""
+
+    def __init__(self, slug: str):
+        self.slug = slug
+
+
+class UrlExpiredError(AppException):
+    """Url already expired"""
+
+    def __init__(self, url: str):
+        self.url = url
 
 
 def create_exception_handler(

@@ -12,16 +12,19 @@ class UserRepository(BaseRepository[UserBase, User]):
     def _entity_to_model(entity: UserBase) -> model:
         return User(**entity.model_dump())
 
-    def _model_to_entity(model: User, entity: UserBase) -> UserBase:
-        return entity.model_validate(model)
-
     def _get_filters(self, **filters) -> list[Any]:
         filter_conditions = []
 
+        if "email" in filters:
+            filter_conditions.append(self.model.email == filters["email"])
+        if "google_email" in filters:
+            filter_conditions.append(self.model.google_email == filters["google_email"])
         if "is_active" in filters:
-            filter_conditions.append(self.model.is_active.is_(True))
+            filter_conditions.append(self.model.is_active.is_(filters["is_active"]))
         if "is_verified" in filters:
-            filter_conditions.append(self.model.is_verified.is_(True))
+            filter_conditions.append(self.model.is_verified.is_(filters["is_verified"]))
+        if "is_deactivated" in filters:
+            filter_conditions.append(self.model.is_deactivated.is_(filters["is_deactivated"]))
 
         return filter_conditions
 

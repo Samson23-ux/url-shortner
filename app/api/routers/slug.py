@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Request
+from typing import Annotated
+from fastapi import APIRouter, Request, Query
 
 
 from app.api.schemas.response import SuccessResponse
 from app.api.schemas.slug import SlugCreate, SlugUpdate, SlugResponse
 from app.dependencies import (
     SlugService,
-    # UserServiceDep,
     CurrentActiveUser,
 )
 
@@ -25,21 +25,31 @@ async def create_slug(
     slug_service: SlugService,
     curr_user: CurrentActiveUser,
 ):
-    pass
+    slug: SlugResponse = await slug_service.create_slug(curr_user, slug_payload)
+    return SuccessResponse(message="Slug created successfully", data=slug)
 
 
 @router.get(
     "/slugs",
     status_code=200,
     description="Get all craeted slug",
-    response_model=SuccessResponse[SlugResponse]
+    response_model=SuccessResponse[list[SlugResponse]]
 )
 async def get_all_slug(
     request: Request,
     slug_service: SlugService,
     curr_user: CurrentActiveUser,
+    sort: Annotated[
+        str, Query(description="Sort by created_at")
+    ] = None,
+    order: Annotated[str, Query(description="Order in asc or desc")] = None,
+    cursor: Annotated[str, Query()] = None,
+    limit: Annotated[int, Query()] = 10,
 ):
-    pass
+    slugs: list[SlugResponse] = await slug_service.get_all_slugs(
+        curr_user, sort, order, cursor, limit
+    )
+    return SuccessResponse(message="Slugs retrieved successfully", data=slugs)
 
 
 @router.get(
@@ -54,7 +64,8 @@ async def get_slug(
     slug_service: SlugService,
     curr_user: CurrentActiveUser,
 ):
-    pass
+    slug: SlugResponse = await slug_service.get_slug(curr_user, slug)
+    return SuccessResponse(message="Slug retrived successfully", data=slug)
 
 
 @router.patch(
@@ -70,7 +81,8 @@ async def update_slug(
     slug_service: SlugService,
     curr_user: CurrentActiveUser,
 ):
-    pass
+    slug: SlugResponse = await slug_service.update_slug(curr_user, slug_payload, slug)
+    return SuccessResponse(message="Slug updated successfully", data=slug)
 
 
 @router.delete(
@@ -84,4 +96,4 @@ async def delete_slug(
     slug_service: SlugService,
     curr_user: CurrentActiveUser,
 ):
-    pass
+    await slug_service.delete_slug(curr_user, slug)

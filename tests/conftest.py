@@ -1,6 +1,8 @@
 import pytest_asyncio
+from uuid import uuid7
 from sqlalchemy.pool import NullPool
 from unittest.mock import patch, AsyncMock
+from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient, ASGITransport, Response
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -13,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
 
 
 from app.main import app
+from app.api.models.otp import Otp
 from app.api.models.base import Base
 from app.core.config import get_settings
 from app.api import models  # noqa: F401
@@ -96,19 +99,29 @@ async def create_user(async_client: AsyncClient):
 
 @pytest_asyncio.fixture
 async def verify_user(async_client: AsyncClient, create_user: Response):
-    otp_path: str = "app.api.services.auth_service.auth_repo_v1.get_email_otp"
-    delete_path: str = "app.api.services.auth_service.auth_repo_v1.delete_otp_token"
+    otp_path: str = "app.api.services.auth_service._otp_repo.get_record"
+    update_path: str = "app.api.services.auth_service._otp_repo.add"
+
+    fake_otp: Otp = Otp(
+        id=uuid7(),
+        otp="test_otp_token",
+        user_id=uuid7(),
+        purpose="email_signup",
+        status="valid",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15)
+    )
 
     otp_payload: dict = {
         "email": "user@example.com",
         "otp_token": "test_otp_token",
+        "password": "new_test_user_password"
     }
 
     with (
         patch(otp_path, new_callable=AsyncMock) as otp_patch,
-        patch(delete_path, new_callable=AsyncMock) as delete_patch
+        patch(update_path, new_callable=AsyncMock) as update_patch
     ):
-        otp_patch.return_value = "test_otp_token"
+        otp_patch.return_value = fake_otp
 
         res: Response = await async_client.post(
             "/auth/verify",
@@ -117,7 +130,7 @@ async def verify_user(async_client: AsyncClient, create_user: Response):
         )
 
     otp_patch.assert_awaited_once()
-    delete_patch.assert_awaited_once()
+    update_patch.assert_awaited_once()
 
     return res
 
