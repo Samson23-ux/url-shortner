@@ -193,7 +193,7 @@ class UrlService:
         try:
             url_db: tuple = await self._url_repo.get_url(
                 slug,
-                Slug.custom_slug,
+                Url.id,
                 Url.original_url,
                 Url.shortened_url,
                 Url.expire_at,
@@ -207,14 +207,14 @@ class UrlService:
                 )
                 raise UrlNotFoundError(slug=slug)
 
-            slug, original_url, shortened_url, expire_at = url_db
+            url_id, original_url, shortened_url, expire_at = url_db
 
             if expire_at > datetime.now(timezone.utc):
                 raise UrlExpiredError(url=shortened_url)
 
             # use redis counter to track clicks per day
             ttl: int = 60 * 60 * 48
-            key: str = f"clicks:{slug}:{date.today().isoformat()}"
+            key: str = f"clicks:{url_id}:{date.today().isoformat()}"
             await self._redis_repo.increment_clicks(key, ttl)
 
             sentry_logger.info(

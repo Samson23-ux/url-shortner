@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Any
-from sqlalchemy import select, func, Sequence, and_
+from sqlalchemy import select, func, Sequence
 from datetime import datetime, timezone, timedelta
 
 
@@ -92,7 +92,7 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
         return res.scalars().all()
 
     async def get_total_clicks_per_url(self, user_id: UUID, day: str):
-        filter_mappings: str = {
+        filter_mappings: dict = {
             "today": Url.created_at >= datetime.now(timezone.utc) - timedelta(days=1),
             "last seven days": Url.created_at
             >= datetime.now(timezone.utc) - timedelta(days=7),
