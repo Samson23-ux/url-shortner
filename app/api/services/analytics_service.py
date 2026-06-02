@@ -6,13 +6,15 @@ import sentry_sdk.logger as sentry_logger
 
 from app.api.models.user import User
 from app.core.exceptions import ServerError
-from app.api.schemas.analytics import AnalyticsResponse
+from app.api.repo.redis_repo import RedisRepository
 from app.api.repo.analytics_repo import AnalyticsRepository
+from app.api.schemas.analytics import AnalyticsResponse, UrlStatInDB
 
 
 class AnalyticsService:
-    def __init__(self, analytics_repo: AnalyticsRepository):
+    def __init__(self, analytics_repo: AnalyticsRepository, redis_repo: RedisRepository):
         self._analytics_repo = analytics_repo
+        self._redis_repo = redis_repo
 
     async def get_analytics(self, curr_user: User, day: str | None):
         if curr_user.type == "email":
@@ -64,3 +66,13 @@ class AnalyticsService:
                 email=user_email,
             )
             raise ServerError() from e
+
+    def get_clicks_keys(self, key):
+        return self._redis_repo.get_clicks_keys(key)
+
+    def get_clicks(self, key):
+        return self._redis_repo.get_clicks(key)
+
+    def upsert_click(self, url_stat: UrlStatInDB):
+        self._analytics_repo.upsert_click(url_stat)
+        self._analytics_repo.sync_commit()

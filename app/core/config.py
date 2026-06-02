@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # async db
     ASYNC_DB_URL: str
 
+    # sync db
+    SYNC_DB_URL: str
+
     # test db
     ASYNC_TEST_DB_URL: str
 
@@ -50,6 +53,16 @@ class Settings(BaseSettings):
     # get shortened url
     URL_EXPIRE_TIME: int
     SHORTEN_URL: str = "http://localhost:8000/api/v1/shorten"
+
+    # rabbitmq
+    API_BROKER: str
+
+    # resend email
+    API_EMAIL: str
+    RESEND_API_KEY: str
+
+    # otp
+    OTP_EXPIRE_TIME: int
 
 @lru_cache(maxsize=1)
 def get_settings():

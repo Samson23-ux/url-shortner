@@ -1,4 +1,6 @@
 from typing import Any
+from sqlalchemy import and_
+from datetime import datetime, timezone
 
 
 from app.api.models.user import User
@@ -24,7 +26,21 @@ class UserRepository(BaseRepository[UserBase, User]):
         if "is_verified" in filters:
             filter_conditions.append(self.model.is_verified.is_(filters["is_verified"]))
         if "is_deactivated" in filters:
-            filter_conditions.append(self.model.is_deactivated.is_(filters["is_deactivated"]))
+            filter_conditions.append(
+                self.model.is_deactivated.is_(filters["is_deactivated"])
+            )
+        if "days_to_deactivation" in filters:
+            today: datetime = datetime.now(timezone.utc)
+            filter_conditions.append(
+                and_(
+                    self.model.seven_days_before
+                    >= today,
+                    self.model.five_days_before
+                    <= today,
+                )
+            )
+        if "delete_deactivated" in filters:
+            filter_conditions.append(datetime.now(timezone.utc) >= self.model.delete_at)
 
         return filter_conditions
 

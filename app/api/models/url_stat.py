@@ -2,14 +2,14 @@ import uuid
 from datetime import date
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import (
-    String,
     text,
     UUID,
     ForeignKey,
     Date,
     Integer,
     PrimaryKeyConstraint,
-    Index
+    Index,
+    UniqueConstraint
 )
 
 
@@ -30,4 +30,5 @@ class UrlStat(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="url_stats_pk"),
         Index("idx_urls_url_id", url_id),
+        UniqueConstraint(url_id, date, name="url_stats_unique_key")
     )

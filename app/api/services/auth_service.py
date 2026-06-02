@@ -1,5 +1,7 @@
 import sentry_sdk
+from uuid import uuid4
 import sentry_sdk.logger as sentry_logger
+from datetime import datetime, timezone, timedelta
 
 
 from app.api.models.otp import Otp
@@ -9,6 +11,7 @@ from app.api.repo.otp_repo import OtpRepository
 from app.api.repo.user_repo import UserRepository
 from app.api.repo.redis_repo import RedisRepository
 from app.api.services.user_service import UserService
+from app.task.celery_task import send_verification_email
 from app.api.repo.unit_of_work import UnitOfWorkRepository
 from app.api.schemas.user import UserInDB, EmailUserResponse, GoogleUserResponse
 from app.core.security import (
@@ -51,9 +54,7 @@ class AuthService:
         key: str = f"tokens:{refresh_token_id}"
 
         try:
-            await self._redis_repo.add_refresh_token(
-                key, refresh_token_payload
-            )
+            await self._redis_repo.add_refresh_token(key, refresh_token_payload)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             sentry_logger.error("Error occurred while saving refresh token to redis")
@@ -77,7 +78,12 @@ class AuthService:
 
                 await user_service.update_user(existing_user)
 
-                ### send verification code to email
+                send_verification_email.delay(
+                    str(uuid4()),
+                    existing_user.email,
+                    str(existing_user.id),
+                    "email_signup",
+                )
             else:
                 sentry_logger.error("User exists with email {email}", email=user_email)
                 raise UserExistsError(user_email=user_email)
@@ -87,7 +93,8 @@ class AuthService:
             )
             await user_service.create_user(user)
 
-        ### send verification code to email
+        user: User | None = await user_service._get_user_by_email(email=user_email)
+        send_verification_email.delay(str(uuid4()), user_email, str(user.id), "email_signup")
 
         sentry_logger.info(
             "Email and password sign up completed for user {email}",
@@ -141,7 +148,7 @@ class AuthService:
         email_verify: EmailVerify,
     ):
         # close active sessions
-        await self._otp_repo.close()
+        await self._otp_repo.aclose()
 
         self._uow = uow
         self._user_repo = UserRepository(self._uow._session)
@@ -149,14 +156,14 @@ class AuthService:
 
         user_email: str = email_verify.email
 
-        existing_user: User | None = await self._user_repo.get_record(User, email=user_email)
+        existing_user: User | None = await self._user_repo.get_record(email=user_email)
 
         if not existing_user:
             sentry_logger.error("User not found with email {email}", email=user_email)
             raise InvalidOtpError()
 
         otp: Otp = await self._otp_repo.get_record(
-            Otp, otp=email_verify.otp_code, user_id=existing_user.id, expires_at="valid"
+            otp=email_verify.otp_code, user_id=existing_user.id, expires_at="valid"
         )
 
         if not otp:
@@ -215,7 +222,7 @@ class AuthService:
 
         try:
             await self._otp_repo.update_records(
-                Otp, {"status": "used"}, user_id=existing_user.id, status="valid"
+                {"status": "used"}, user_id=existing_user.id, status="valid"
             )
 
             ### resend email
@@ -273,9 +280,7 @@ class AuthService:
         refresh_token_id: str = refresh_token["jti"]
         key: str = f"tokens:{refresh_token_id}"
 
-        refresh_token_db: dict = await self._redis_repo.get_refresh_token(
-            key
-        )
+        refresh_token_db: dict = await self._redis_repo.get_refresh_token(key)
 
         if not refresh_token_db:
             sentry_logger.error("Inavlid refresh token received during refresh")
@@ -352,7 +357,9 @@ class AuthService:
             email=password_reset.email, is_verified=True, is_deactivated=False
         )
 
-        ### send verification email
+        send_verification_email.delay(
+            str(uuid4()), existing_user.email, str(existing_user.id), "password_reset"
+        )
 
         sentry_logger.info(
             "User {email} password reset completed",
@@ -379,8 +386,13 @@ class AuthService:
         else:
             user_email: str = curr_user.google_email
 
+        delete_at = datetime.now(timezone.utc) + timedelta(days=14)
+
         curr_user.is_active = False
         curr_user.is_deactivated = True
+        curr_user.delete_at = delete_at
+        curr_user.five_days_before = delete_at - timedelta(days=5)
+        curr_user.seven_days_before = delete_at - timedelta(days=7)
         await user_service.update_user(curr_user)
 
         sentry_logger.info(
@@ -393,6 +405,7 @@ class AuthService:
             email=email, is_verified=True, is_active=False, is_deactivated=True
         )
 
+        existing_user.delete_at = None
         existing_user.is_deactivated = False
         await user_service.update_user(existing_user)
 

@@ -54,5 +54,5 @@ class UrlRepository(BaseRepository[UrlBase, Url]):
             .where(Slug.custom_slug == slug)
         )
 
-        res = await self._session.execute(stmt)
+        res = await self._async_session.execute(stmt)
         return res.scalar()

@@ -2,6 +2,7 @@ from app.api.models.url import Url
 from app.api.models.otp import Otp
 from app.api.models.user import User
 from app.api.models.slug import Slug
+from app.api.models.emails import Email
 from app.api.models.url_stat import UrlStat
 
 
@@ -10,5 +11,6 @@ __all__ = [
     "Otp",
     "User",
     "Slug",
+    "Email",
     "UrlStat"
 ]

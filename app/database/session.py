@@ -47,7 +47,7 @@ A redis client with:
 - client-side cache which reduces the network traffic with the server
 """
 
-redis_client = Redis(
+redis_client: Redis = Redis(
     connection_pool=redis_pool,
     cache_config=CacheConfig(max_size=1000)
 )

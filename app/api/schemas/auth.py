@@ -1,7 +1,10 @@
+from uuid import UUID
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
 from app.api.models.user import UserType
+from app.api.models.otp import OtpPurpose, OtpStatus
 
 
 class AuthBase(BaseModel):
@@ -44,6 +47,14 @@ class PasswordUpdate(AuthBase):
 
 class PasswordReset(AuthBase):
     email: EmailStr
+
+
+class OtpInDB(AuthBase):
+    otp: str
+    user_id: UUID
+    purpose: OtpPurpose
+    status: OtpStatus = "valid"
+    expires_at: datetime
 
 
 class SignUpResponse(BaseModel):

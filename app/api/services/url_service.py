@@ -50,7 +50,7 @@ class UrlService:
             )
 
             if slug_exists:
-                slug_db: Slug = await self._slug_repo.get_record(Slug, custom_slug=slug)
+                slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
                 if slug_db:
                     sentry_logger.error(
@@ -94,7 +94,7 @@ class UrlService:
         url_exists: bool = await self._redis_repo.filter_value_exists(filter_key, url)
 
         if url_exists:
-            url_db: Url = await self._url_repo.get_record(Url, original_url=url)
+            url_db: Url = await self._url_repo.get_record(original_url=url)
 
             if url_db.expire_at > datetime.now(timezone.utc):
                 sentry_logger.error(
@@ -135,7 +135,7 @@ class UrlService:
         self, uow: UnitOfWorkRepository, curr_user: User, url_payload: ShortenUrl
     ) -> UrlResponse:
         # close active sessions
-        await self._url_repo.close()
+        await self._url_repo.aclose()
 
         self._uow = uow
         self._url_repo = UrlRepository(self._uow._session)
@@ -249,7 +249,7 @@ class UrlService:
 
         try:
             urls: Sequence[Url] = await self._url_repo.get_records(
-                Url, sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
+                sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
             )
 
             if not urls:

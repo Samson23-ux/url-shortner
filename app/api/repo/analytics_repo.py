@@ -1,13 +1,14 @@
 from uuid import UUID
 from typing import Any
 from sqlalchemy import select, func, Sequence
+from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime, timezone, timedelta
 
 
 from app.api.models.url import Url
 from app.api.models.url_stat import UrlStat
 from app.api.repo.base import BaseRepository
-from app.api.schemas.analytics import AnalyticsBase
+from app.api.schemas.analytics import AnalyticsBase, UrlStatInDB
 
 
 class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
@@ -115,3 +116,10 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
 
         res = await self._session.execute(stmt)
         return res.scalar()
+
+    def upsert_click(self, entity: UrlStatInDB):
+        stmt = insert(self.model).values([entity.model_dump()])
+        upsert_stmt = stmt.on_conflict_do_update(
+            index_elements=["url_id", "date"], set_={"clicks": stmt.excluded.clicks}
+        )
+        self._sync_session.execute(upsert_stmt)

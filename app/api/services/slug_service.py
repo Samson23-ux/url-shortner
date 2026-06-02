@@ -35,7 +35,7 @@ class SlugService:
         )
 
         if slug_exists:
-            slug_db: Slug = await self._slug_repo.get_record(Slug, custom_slug=slug)
+            slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
             if slug_db:
                 sentry_logger.error(
@@ -85,7 +85,7 @@ class SlugService:
 
         try:
             slugs: Sequence[Slug] = await self._slug_repo.get_records(
-                Slug, sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
+                sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
             )
 
             if not slugs:
@@ -116,7 +116,7 @@ class SlugService:
             user_email: str = curr_user.google_email
 
         try:
-            slug_db: Slug = await self._slug_repo.get_record(Slug, custom_slug=slug)
+            slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
             if not slug_db:
                 sentry_logger.error(
@@ -147,7 +147,7 @@ class SlugService:
         else:
             user_email: str = curr_user.google_email
 
-        slug_db: Slug = await self._slug_repo.get_record(Slug, custom_slug=slug)
+        slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
         if not slug_db:
             sentry_logger.error(
@@ -195,7 +195,7 @@ class SlugService:
         else:
             user_email: str = curr_user.google_email
 
-        slug_db: Slug = await self._slug_repo.get_record(Slug, custom_slug=slug)
+        slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
         if not slug_db:
             sentry_logger.error(

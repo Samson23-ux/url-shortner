@@ -46,22 +46,22 @@ RedisDep = Annotated[Redis, Depends(get_redis_client)]
 #  ------------------- Repo dependency ----------------------------- #
 
 async def get_url_repo(session: DBSession) -> UrlRepository:
-    return UrlRepository(session=session)
+    return UrlRepository(async_session=session)
 
 async def get_otp_repo(session: DBSession) -> OtpRepository:
-    return OtpRepository(session=session)
+    return OtpRepository(async_session=session)
 
 async def get_user_repo(session: DBSession) -> UserRepository:
-    return UserRepository(session=session)
+    return UserRepository(async_session=session)
 
 async def get_slug_repo(session: DBSession) -> SlugRepository:
-    return SlugRepository(session=session)
+    return SlugRepository(async_session=session)
 
 async def get_analytics_repo(session: DBSession) -> AnalyticsRepository:
-    return AnalyticsRepository(session=session)
+    return AnalyticsRepository(async_session=session)
 
 async def get_redis_repo(redis: RedisDep) -> RedisRepository:
-    return RedisRepository(redis=redis)
+    return RedisRepository(async_redis=redis)
 
 async def get_unit_of_work(session: DBSession) -> UnitOfWorkRepository:
     return UnitOfWorkRepository(session=session)

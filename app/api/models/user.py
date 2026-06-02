@@ -42,6 +42,8 @@ class User(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     delete_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    five_days_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seven_days_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         PrimaryKeyConstraint("id", name="users_pk"),

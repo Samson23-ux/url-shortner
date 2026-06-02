@@ -1,12 +1,14 @@
 from datetime import datetime
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from abc import ABC, abstractmethod
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import TypeVar, Generic, Any, Optional
-from sqlalchemy import select, Sequence, desc, asc, update
+from sqlalchemy import select, Sequence, desc, asc, update, delete
 
 
 from app.api.models.base import Base
+from app.api.schemas.auth import OtpInDB
 from app.core.security import decode_cursor, encode_cursor
 
 
@@ -15,8 +17,11 @@ SqlalchemyModel = TypeVar("SqlalchemyModel", bound=Base)
 
 
 class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
-    def __init__(self, session: AsyncSession):
-        self._session = session
+    def __init__(
+        self, async_session: AsyncSession = None, sync_session: Session = None
+    ):
+        self._sync_session = sync_session
+        self._async_session = async_session
 
     model: type[SqlalchemyModel]
 
@@ -25,38 +30,37 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
     ):
         if not model:
             model: SqlalchemyModel = self._entity_to_model(entity)
-        self._session.add(model)
+        self._async_session.add(model)
 
     async def flush(self):
-        await self._session.flush()
+        await self._async_session.flush()
 
     async def refresh(self, model: SqlalchemyModel):
-        await self._session.refresh(model)
+        await self._async_session.refresh(model)
 
     async def commit(self):
-        await self._session.commit()
+        await self._async_session.commit()
 
     async def rollback(self):
-        await self._session.rollback()
+        await self._async_session.rollback()
 
-    async def close(self):
-        await self._session.aclose()
+    async def aclose(self):
+        await self._async_session.aclose()
 
     async def delete(self, model: SqlalchemyModel):
-        await self._session.delete(model)
-        await self._session.flush()
+        await self._async_session.delete(model)
+        await self._async_session.flush()
 
     async def get_record(
-        self, model: SqlalchemyModel, **filters
+        self, **filters
     ) -> SqlalchemyModel | None:
         filter_conditions: list[Any] = self._get_filters(**filters)
 
-        res = await self._session.execute(select(model).where(*filter_conditions))
+        res = await self._async_session.execute(select(self.model).where(*filter_conditions))
         return res.scalar()
 
     async def get_records(
         self,
-        model: SqlalchemyModel,
         sort: str,
         order: str,
         cursor: str,
@@ -77,7 +81,7 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
                 order = asc(*sort_fields)
 
             stmt = (
-                select(model).where(*filter_conditions).order_by(order).limit(limit + 1)
+                select(self.model).where(*filter_conditions).order_by(order).limit(limit + 1)
             )
         else:
             """continue with the last record viewed"""
@@ -87,19 +91,19 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
             if cursor_order == "desc":
                 cursor_order = desc(*sort_fields)
-                created_at_filter = model.created_at < created_at
+                created_at_filter = self.model.created_at < created_at
             else:
                 cursor_order = asc(*sort_fields)
-                created_at_filter = model.created_at > created_at
+                created_at_filter = self.model.created_at > created_at
 
             stmt = (
-                select(model)
+                select(self.model)
                 .where(*filter_conditions, created_at_filter)
                 .order_by(cursor_order)
                 .limit(limit + 1)
             )
 
-        res = await self._session.execute(stmt)
+        res = await self._async_session.execute(stmt)
         records = res.scalars().all()
 
         has_more: bool = len(records)
@@ -112,21 +116,12 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
         return {"data": records[:limit], "cursor": next_cursor if has_more else None}
 
-    async def _get_records(
-        self,
-        model: SqlalchemyModel,
-        **filters,
-    ) -> Sequence[SqlalchemyModel]:
-        filter_conditions: list[Any] = self._get_filters(**filters)
-        res = await self._session.execute(select(model).where(*filter_conditions))
-        return res.scalars().all()
-
     async def update_records(
-        self, model: SqlalchemyModel, fields_to_update: dict[str, Any], **filters
+        self, fields_to_update: dict[str, Any], **filters
     ):
         filter_conditions: list[Any] = self._get_filters(**filters)
-        await self._session.execute(
-            update(model).where(*filter_conditions).values(fields_to_update)
+        await self._async_session.execute(
+            update(self.model).where(*filter_conditions).values(fields_to_update)
         )
 
     @staticmethod
@@ -141,3 +136,45 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
     @abstractmethod
     def _get_sort_fields(self, sort: str) -> list[Any]:
         return []
+
+
+    # sync db queries
+    def _get_records(
+        self,
+        *columns,
+        **filters,
+    ) -> Sequence[SqlalchemyModel] | tuple:
+        filter_conditions: list[Any] = self._get_filters(**filters)
+
+        if columns:
+            stmt = select(*columns)
+        else:
+            stmt = select(self.model)
+
+        res = self._sync_session.execute(stmt.where(*filter_conditions))
+        return res.scalars().all()
+
+    def sync_add(self, entity: OtpInDB):
+        model = self._entity_to_model(entity)
+        self._sync_session.add(model)
+
+    def sync_flush(self):
+        self._sync_session.flush()
+
+    def sync_refresh(self, model: SqlalchemyModel):
+        self._sync_session.refresh(model)
+
+    def sync_commit(self):
+        self._sync_session.commit()
+
+    def sync_rollback(self):
+        self._sync_session.rollback()
+
+    def close(self):
+        self._sync_session.close()
+
+    def bulk_delete(self, **filters):
+        filter_conditions = self._get_filters(**filters)
+
+        stmt = delete(self.model).where(*filter_conditions)
+        self._sync_session.execute(stmt)

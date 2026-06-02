@@ -19,7 +19,7 @@ class UserService:
             user_email: str = filters["google_email"]
 
         try:
-            user: User | None = await self._user_repo.get_record(User, **filters)
+            user: User | None = await self._user_repo.get_record(**filters)
 
             if not user:
                 sentry_logger.error("User not found with email {email}", email=user_email)
@@ -35,7 +35,10 @@ class UserService:
             raise ServerError() from e
 
     async def _get_user_by_email(self, **filters) -> User | None:
-        return await self._user_repo.get_record(User, **filters)
+        return await self._user_repo.get_record(**filters)
+
+    def get_deactivated_users(self) -> tuple:
+        return self._user_repo._get_records(User.email, days_to_deactivation=True)
 
     async def create_user(self, user: UserInDB):
         try:
@@ -76,3 +79,7 @@ class UserService:
                 email=user.email
             )
             raise ServerError() from e
+
+    def delete_deactivated_users(self):
+        self._user_repo.bulk_delete(delete_deactivated=True)
+        self._user_repo.sync_commit()

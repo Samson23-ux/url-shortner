@@ -1,3 +1,4 @@
+from uuid import UUID
 from datetime import date
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
@@ -5,6 +6,12 @@ from pydantic import BaseModel, ConfigDict
 
 class AnalyticsBase(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class UrlStatInDB(AnalyticsBase):
+    url_id: UUID
+    clicks: int
+    date: date
 
 
 class AnalyticsOut(AnalyticsBase):
