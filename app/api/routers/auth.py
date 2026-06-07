@@ -1,7 +1,5 @@
-from typing import Annotated
-from pydantic import EmailStr
 from fastapi.responses import RedirectResponse
-from fastapi import APIRouter, Request, Response, Form
+from fastapi import APIRouter, Request, Response
 
 
 from app.limiter import limiter
@@ -26,6 +24,7 @@ from app.api.schemas.auth import (
     PasswordReset,
     LogoutResponse,
     DeactivateResponse,
+    ReactivateUser
 )
 
 
@@ -160,7 +159,9 @@ async def login(
         secure=get_settings().ENVIRONMENT == "production",
         samesite="lax",
     )
-    return Token(access_token=access_token)
+    return SuccessResponse(
+        message="Login completed successfully", data=Token(access_token=access_token)
+    )
 
 
 @router.post(
@@ -187,7 +188,9 @@ async def create_new_token(
         secure=get_settings().ENVIRONMENT == "production",
         samesite="lax",
     )
-    return Token(access_token=access_token)
+    return SuccessResponse(
+        message="Token created successfully", data=Token(access_token=access_token)
+    )
 
 
 @router.get(
@@ -294,14 +297,14 @@ async def deactivate_account(
 @limiter.limit("3/5minute")
 async def reactivate_account(
     request: Request,
-    email: Annotated[
-        EmailStr, Form(..., description="A valid email address for an existing account")
-    ],
+    reactivate_user: ReactivateUser,
     auth_service: AuthServiceDep,
     user_service: UserServiceDep,
 ):
-    await auth_service.reactivate_account(email, user_service)
-    return SuccessResponse(message="Account reactivated successfully. Login to access account")
+    await auth_service.reactivate_account(reactivate_user, user_service)
+    return SuccessResponse(
+        message="Account reactivated successfully. Login to access account"
+    )
 
 
 @router.delete("/auth", status_code=204, description="Delete account permanently")

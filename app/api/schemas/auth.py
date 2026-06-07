@@ -8,7 +8,7 @@ from app.api.models.otp import OtpPurpose, OtpStatus
 
 
 class AuthBase(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
 class TokenData(AuthBase):
@@ -27,16 +27,17 @@ class EmailVerify(AuthBase):
     password: str = Field(
         default=None,
         min_length=8,
-        description="A password value should be passed for password reset"
+        description="A password value should be passed for password reset",
     )
 
 
 class ResendOtp(AuthBase):
     email: str
+    purpose: OtpPurpose
 
 
 class EmailLogin(AuthBase):
-    email: str
+    email: EmailStr
     password: str = Field(..., min_length=8)
 
 
@@ -47,6 +48,13 @@ class PasswordUpdate(AuthBase):
 
 class PasswordReset(AuthBase):
     email: EmailStr
+
+
+class ReactivateUser(AuthBase):
+    email: EmailStr
+    user_type: UserType = Field(
+        ..., description="Set current user type. Value can only be email or google"
+    )
 
 
 class OtpInDB(AuthBase):

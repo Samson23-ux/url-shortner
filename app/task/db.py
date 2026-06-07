@@ -1,6 +1,6 @@
+from redis import Redis
 from redis.retry import Retry
-from redis.cache import CacheConfig
-from redis import Redis, ConnectionPool
+from redis.connection import ConnectionPool
 from sqlalchemy import Engine, create_engine
 from redis.backoff import ExponentialBackoff
 from sqlalchemy.orm import Session, sessionmaker
@@ -23,8 +23,9 @@ db_engine: Engine = create_engine(
 db_session: Session = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
 
 
-redis_pool = ConnectionPool(
+redis_pool = ConnectionPool.from_url(
     get_settings().REDIS_URL,
+    decode_responses=True,
     max_connections=50,
     retry=Retry(ExponentialBackoff(cap=1.0, base=0.1), retries=5),
     retry_on_error=(TimeoutError, ConnectionError),
@@ -37,4 +38,4 @@ def get_db_session() -> Session:
 
 
 def get_redis_client() -> Redis:
-    return Redis(connection_pool=redis_pool, cache_config=CacheConfig(max_size=1000))
+    return Redis(connection_pool=redis_pool)

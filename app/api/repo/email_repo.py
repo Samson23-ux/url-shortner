@@ -34,6 +34,7 @@ class EmailRepository(BaseRepository[EmailBase, Email]):
         res = self._sync_session.execute(select(Email).where(*filter_conditions))
         return res.scalar()
 
+    @staticmethod
     def _entity_to_model(entity: EmailBase) -> Email:
         return Email(**entity.model_dump())
 

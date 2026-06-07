@@ -27,6 +27,9 @@ class UserService:
 
             return user
         except Exception as e:
+            if isinstance(e, UserNotFoundError):
+                raise UserNotFoundError(user_email=user_email)
+
             sentry_sdk.capture_exception(e)
             sentry_logger.error(
                 "Error occured while retrieving user with email {email}",
@@ -42,7 +45,7 @@ class UserService:
 
     async def create_user(self, user: UserInDB):
         try:
-            self._user_repo.add(entity=UserInDB)
+            self._user_repo.add(entity=user)
             await self._user_repo.commit()
         except Exception as e:
             await self._user_repo.rollback()
@@ -55,7 +58,7 @@ class UserService:
         
     async def update_user(self, user: User):
         try:
-            self._user_repo.add(model=User)
+            self._user_repo.add(model=user)
             await self._user_repo.commit()
             await self._user_repo.refresh(user)
         except Exception as e:

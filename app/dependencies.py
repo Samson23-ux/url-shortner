@@ -28,6 +28,10 @@ from app.api.services.analytics_service import AnalyticsService
 # Auth bearer
 bearer = HTTPBearer(auto_error=False)
 
+# my lifespan function is correctly configured so why this error:
+
+# tests/test_auth.py::TestSignUpWithEmail::test_sign_up - AttributeError: 'State' object has no attribute 'redis'
+
 
 # ------------------- DB dependency ------------------------------ #
 
@@ -45,26 +49,34 @@ RedisDep = Annotated[Redis, Depends(get_redis_client)]
 
 #  ------------------- Repo dependency ----------------------------- #
 
+
 async def get_url_repo(session: DBSession) -> UrlRepository:
     return UrlRepository(async_session=session)
+
 
 async def get_otp_repo(session: DBSession) -> OtpRepository:
     return OtpRepository(async_session=session)
 
+
 async def get_user_repo(session: DBSession) -> UserRepository:
     return UserRepository(async_session=session)
+
 
 async def get_slug_repo(session: DBSession) -> SlugRepository:
     return SlugRepository(async_session=session)
 
+
 async def get_analytics_repo(session: DBSession) -> AnalyticsRepository:
     return AnalyticsRepository(async_session=session)
+
 
 async def get_redis_repo(redis: RedisDep) -> RedisRepository:
     return RedisRepository(async_redis=redis)
 
+
 async def get_unit_of_work(session: DBSession) -> UnitOfWorkRepository:
     return UnitOfWorkRepository(session=session)
+
 
 UrlRepo = Annotated[UrlRepository, Depends(get_url_repo)]
 OtpRepo = Annotated[OtpRepository, Depends(get_otp_repo)]
@@ -77,20 +89,28 @@ AnalyticsRepo = Annotated[AnalyticsRepository, Depends(get_analytics_repo)]
 
 #  -------------------- Service dependency ---------------------------- #
 
+
 async def get_url_service(url_repo: UrlRepo, redis_repo: RedisRepo) -> UrlService:
     return UrlService(url_repo=url_repo, redis_repo=redis_repo)
+
 
 async def get_auth_service(otp_repo: OtpRepo, redis_repo: RedisRepo) -> AuthService:
     return AuthService(otp_repo=otp_repo, redis_repo=redis_repo)
 
+
 async def get_user_service(user_repo: UserRepo) -> UserService:
     return UserService(user_repo=user_repo)
+
 
 async def get_slug_service(slug_repo: SlugRepo, redis_repo: RedisRepo) -> SlugService:
     return SlugService(slug_repo=slug_repo, redis_repo=redis_repo)
 
-async def get_analytics_service(analytics_repo: AnalyticsRepo) -> AnalyticsService:
-    return AnalyticsService(analytics_repo=analytics_repo)
+
+async def get_analytics_service(
+    analytics_repo: AnalyticsRepo, redis_repo: RedisRepo
+) -> AnalyticsService:
+    return AnalyticsService(analytics_repo=analytics_repo, redis_repo=redis_repo)
+
 
 UrlServiceDep = Annotated[UrlService, Depends(get_url_service)]
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
@@ -101,10 +121,15 @@ AnalyticsServiceDep = Annotated[AnalyticsService, Depends(get_analytics_service)
 
 # ------------------------ Auth dependency ---------------------------- #
 
+
 async def get_current_user(
     user_service: UserServiceDep,
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer)]
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer)],
 ) -> User:
+    if not credentials:
+        sentry_logger.error("User not authenticated")
+        raise AuthenticationError()
+
     token: str | None = credentials.credentials
     key: str = get_settings().ACCESS_TOKEN_SECRET_KEY
 

@@ -1,6 +1,5 @@
 import re
 from uuid import UUID
-from typing import Optional
 from datetime import datetime
 from typing_extensions import Self
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -14,14 +13,9 @@ SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 class SlugBase(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     custom_slug: str
-
-
-class SlugInDB(SlugBase):
-    user_id: UUID
-    created_at: Optional[datetime] = None
 
 
 class SlugCreate(SlugBase):
@@ -35,6 +29,8 @@ class SlugCreate(SlugBase):
 
 
 class SlugUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     new_custom_slug: str
 
     @model_validator(mode="after")
@@ -47,6 +43,8 @@ class SlugUpdate(BaseModel):
 
 
 class SlugResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     user_id: UUID
     custom_slug: str

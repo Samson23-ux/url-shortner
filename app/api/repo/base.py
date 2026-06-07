@@ -66,22 +66,22 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
         cursor: str,
         limit: int,
         **filters,
-    ) -> Sequence[SqlalchemyModel]:
+    ) -> dict:
         filter_conditions: list[Any] = self._get_filters(**filters)
         sort_fields: list[Any] = self._get_sort_fields(sort)
 
-        cursor_payload: dict = await decode_cursor(cursor)
+        cursor_payload: dict = await decode_cursor(cursor, order)
 
         if not cursor_payload:
             """get records from the first record in db"""
 
             if order.lower() == "desc":
-                order = desc(*sort_fields)
+                filter_order = desc(*sort_fields)
             else:
-                order = asc(*sort_fields)
+                filter_order = asc(*sort_fields)
 
             stmt = (
-                select(self.model).where(*filter_conditions).order_by(order).limit(limit + 1)
+                select(self.model).where(*filter_conditions).order_by(filter_order).limit(limit + 1)
             )
         else:
             """continue with the last record viewed"""
@@ -109,8 +109,8 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
         has_more: bool = len(records)
 
         payload: dict = {
-            "created_at": records[:limit].created_at.isoformat(),
-            "order": cursor_payload["order"],
+            "created_at": records[:limit][-1].created_at.isoformat(),
+            "order": cursor_payload["order"] if cursor_payload else order,
         }
         next_cursor: str = await encode_cursor(payload)
 

@@ -12,7 +12,9 @@ from app.api.schemas.analytics import AnalyticsResponse, UrlStatInDB
 
 
 class AnalyticsService:
-    def __init__(self, analytics_repo: AnalyticsRepository, redis_repo: RedisRepository):
+    def __init__(
+        self, analytics_repo: AnalyticsRepository, redis_repo: RedisRepository
+    ):
         self._analytics_repo = analytics_repo
         self._redis_repo = redis_repo
 
@@ -42,23 +44,25 @@ class AnalyticsService:
                 self._analytics_repo.get_total_clicks_per_url(user_id, day),
             )
 
-            most_clicked_url, _ = most_clicked
-            least_clicked_url, _ = least_clicked
+            most_clicked_url, most_clicks = most_clicked[0]
+            least_clicked_url, least_clicks = least_clicked[0]
 
-            avg_clicks_per_day: dict = {d: c for d, c in avg_clicks}
-            total_clicks_per_url: dict = {u: c for u, c in total_clicks_per_url}
+            avg_clicks_per_day: dict = {d.isoformat(): int(c) for d, c in avg_clicks}
+            recently_created_urls: list = [u for u, in recent_urls]
+            total_clicks_per_url: dict = {u: int(c) for u, c in total_clicks_per_url}
 
             sentry_logger.info("User {email} url analytics retrieved", email=user_email)
 
-            return AnalyticsResponse(
+            analytics: AnalyticsResponse = AnalyticsResponse(
                 total_urls=total_urls if total_urls else 0,
                 total_clicks=total_clicks if total_clicks else 0,
-                most_clicked_url=most_clicked_url,
-                least_clicked_url=least_clicked_url,
+                most_clicked_url=most_clicked_url if most_clicks > 0 else None,
+                least_clicked_url=least_clicked_url if least_clicks > 0 else None,
                 avg_clicks_per_day=avg_clicks_per_day,
-                recently_created_urls=recent_urls,
+                recently_created_urls=recently_created_urls,
                 total_clicks_per_url=total_clicks_per_url,
             )
+            return analytics
         except Exception as e:
             sentry_sdk.capture_exception(e)
             sentry_logger.error(

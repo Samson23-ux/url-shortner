@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Any
-from sqlalchemy import select, func, Sequence
+from sqlalchemy import select, func
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime, timezone, timedelta
 
@@ -14,6 +14,7 @@ from app.api.schemas.analytics import AnalyticsBase, UrlStatInDB
 class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
     model = UrlStat
 
+    @staticmethod
     def _entity_to_model(entity: AnalyticsBase) -> model:
         return UrlStat(**entity.model_dump())
 
@@ -33,42 +34,62 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
 
     async def get_total_urls(self, user_id: UUID) -> int | None:
         stmt = select(func.count(Url.shortened_url)).where(Url.user_id == user_id)
-        res = await self._session.execute(stmt)
+        res = await self._async_session.execute(stmt)
         return res.scalar()
 
     async def get_total_clicks(self, user_id: UUID) -> int | None:
         stmt = (
-            select(func.count(self.model.clicks))
+            select(func.sum(self.model.clicks))
             .select_from(Url)
             .join(self.model, Url.id == self.model.url_id)
             .where(Url.user_id == user_id)
         )
-        res = await self._session.execute(stmt)
+        res = await self._async_session.execute(stmt)
         return res.scalar()
 
     async def get_most_clicked_url(self, user_id: UUID):
-        stmt = (
-            select(Url.shortened_url, func.max(self.model.clicks))
+        subquery_stmt = (
+            select(func.max(self.model.clicks).label("max_clicks"))
             .select_from(Url)
             .join(self.model, Url.id == self.model.url_id)
             .where(Url.user_id == user_id)
-            # .group_by(Url.shortened_url)
+            .subquery()
         )
 
-        res = await self._session.execute(stmt)
-        return res.scalar()
+        stmt = (
+            select(Url.shortened_url, self.model.clicks)
+            .select_from(Url)
+            .join(self.model, Url.id == self.model.url_id)
+            .where(
+                Url.user_id == user_id,
+                self.model.clicks == subquery_stmt.c.max_clicks
+            )
+        )
+
+        res = await self._async_session.execute(stmt)
+        return res.all()
 
     async def get_least_clicked_url(self, user_id: UUID):
-        stmt = (
-            select(Url.shortened_url, func.min(self.model.clicks))
+        subquery_stmt = (
+            select(func.min(self.model.clicks).label("min_clicks"))
             .select_from(Url)
             .join(self.model, Url.id == self.model.url_id)
             .where(Url.user_id == user_id)
-            # .group_by(Url.shortened_url)
+            .subquery()
         )
 
-        res = await self._session.execute(stmt)
-        return res.scalar()
+        stmt = (
+            select(Url.shortened_url, self.model.clicks)
+            .select_from(Url)
+            .join(self.model, Url.id == self.model.url_id)
+            .where(
+                Url.user_id == user_id,
+                self.model.clicks == subquery_stmt.c.min_clicks
+            )
+        )
+
+        res = await self._async_session.execute(stmt)
+        return res.all()
 
     async def get_avg_clicks_per_day(self, user_id: UUID):
         stmt = (
@@ -79,18 +100,18 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
             .group_by(self.model.date)
         )
 
-        res = await self._session.execute(stmt)
-        return res.scalar()
+        res = await self._async_session.execute(stmt)
+        return res.all()
 
-    async def get_recently_created_urls(self, user_id: UUID) -> Sequence[str]:
+    async def get_recently_created_urls(self, user_id: UUID):
         recent: datetime = datetime.now(timezone.utc) - timedelta(days=3)
 
         stmt = select(Url.shortened_url).where(
             Url.user_id == user_id, Url.created_at >= recent
         )
-        res = await self._session.execute(stmt)
+        res = await self._async_session.execute(stmt)
 
-        return res.scalars().all()
+        return res.all()
 
     async def get_total_clicks_per_url(self, user_id: UUID, day: str):
         filter_mappings: dict = {
@@ -101,7 +122,7 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
             >= datetime.now(timezone.utc) - timedelta(days=14),
         }
         stmt = (
-            select(Url.shortened_url, self.model.clicks)
+            select(Url.shortened_url, func.sum(self.model.clicks))
             .select_from(Url)
             .join(self.model, Url.id == self.model.url_id)
             .where(Url.user_id == user_id)
@@ -114,8 +135,8 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
             )
             stmt = stmt.where(day_filter)
 
-        res = await self._session.execute(stmt)
-        return res.scalar()
+        res = await self._async_session.execute(stmt)
+        return res.all()
 
     def upsert_click(self, entity: UrlStatInDB):
         stmt = insert(self.model).values([entity.model_dump()])

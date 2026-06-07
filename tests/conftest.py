@@ -1,6 +1,8 @@
 import pytest_asyncio
 from uuid import uuid7
+from redis.asyncio import Redis
 from sqlalchemy.pool import NullPool
+from asgi_lifespan import LifespanManager
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone, timedelta
 from httpx import AsyncClient, ASGITransport, Response
@@ -19,7 +21,9 @@ from app.api.models.otp import Otp
 from app.api.models.base import Base
 from app.core.config import get_settings
 from app.api import models  # noqa: F401
-from app.dependencies import get_session
+from app.api.repo.redis_repo import RedisRepository
+from app.api.services.auth_service import AuthService
+from app.dependencies import get_session, get_auth_service, get_redis_client
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -62,23 +66,42 @@ async def async_session(async_engine: AsyncEngine):
 
 
 @pytest_asyncio.fixture
-async def async_client(async_session: AsyncSession):
+async def test_redis_client():
+    try:
+        redis_client: Redis = Redis.from_url(
+            get_settings().REDIS_URL, decode_responses=True
+        )
+        yield redis_client
+    finally:
+        await redis_client.aclose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def flush_redis(test_redis_client: Redis):
+    yield
+    await test_redis_client.flushdb()
+
+
+@pytest_asyncio.fixture
+async def async_client(async_session: AsyncSession, test_redis_client: Redis):
     async def get_test_session():
         return async_session
 
     app.dependency_overrides[get_session] = get_test_session
+    app.dependency_overrides[get_redis_client] = lambda: test_redis_client
 
-    async with AsyncClient(
-        transport=ASGITransport(app), base_url="http://localhost/api/v1"
-    ) as client:
-        yield client
+    async with LifespanManager(app):
+        async with AsyncClient(
+            transport=ASGITransport(app), base_url="http://localhost/api/v1"
+        ) as client:
+            yield client
 
     app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
 async def create_user(async_client: AsyncClient):
-    path: str = "app.api.services.auth_service.send_email.delay"
+    path: str = "app.api.services.auth_service.send_verification_email.delay"
 
     sign_up_payload: dict = {
         "email": "user@example.com",
@@ -97,47 +120,49 @@ async def create_user(async_client: AsyncClient):
     return res
 
 
-@pytest_asyncio.fixture
-async def verify_user(async_client: AsyncClient, create_user: Response):
-    otp_path: str = "app.api.services.auth_service._otp_repo.get_record"
-    update_path: str = "app.api.services.auth_service._otp_repo.add"
+def mock_auth_service(fake_otp: Otp, redis: Redis):
+    otp_repo = AsyncMock()
+    redis = RedisRepository(async_redis=redis)
 
+    otp_repo.get_record = AsyncMock(return_value=fake_otp)
+    auth_service = AuthService(otp_repo=otp_repo, redis_repo=redis)
+
+    app.dependency_overrides[get_auth_service] = lambda: auth_service
+
+
+@pytest_asyncio.fixture
+async def verify_user(
+    async_client: AsyncClient, create_user: Response, test_redis_client: Redis
+):
     fake_otp: Otp = Otp(
         id=uuid7(),
         otp="test_otp_token",
         user_id=uuid7(),
         purpose="email_signup",
         status="valid",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15)
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
     )
 
     otp_payload: dict = {
         "email": "user@example.com",
-        "otp_token": "test_otp_token",
-        "password": "new_test_user_password"
+        "otp_code": "test_otp_token",
     }
 
-    with (
-        patch(otp_path, new_callable=AsyncMock) as otp_patch,
-        patch(update_path, new_callable=AsyncMock) as update_patch
-    ):
-        otp_patch.return_value = fake_otp
+    mock_auth_service(fake_otp, test_redis_client)
 
-        res: Response = await async_client.post(
-            "/auth/verify",
-            json=otp_payload,
-            headers={"env": "test"},
-        )
-
-    otp_patch.assert_awaited_once()
-    update_patch.assert_awaited_once()
+    res: Response = await async_client.patch(
+        "/auth/verify",
+        json=otp_payload,
+        headers={"env": "test"},
+    )
 
     return res
+
 
 @pytest_asyncio.fixture
 async def login(async_client: AsyncClient, verify_user: Response):
     login_payload: dict = {
-        "username": "user@example.com",
+        "email": "user@example.com",
         "password": "test_user_password",
     }
 
@@ -151,8 +176,10 @@ async def login(async_client: AsyncClient, verify_user: Response):
 
 
 @pytest_asyncio.fixture
-async def shorten_url(async_client: AsyncClient, login: Response):
-    access_token = login.json()["access_token"]
+async def shorten_url(
+    async_client: AsyncClient, async_session: AsyncSession, login: Response
+):
+    access_token = login.json()["data"]["access_token"]
 
     url_create_payload: dict = {
         "original_url": "fake_long_url",
@@ -169,7 +196,7 @@ async def shorten_url(async_client: AsyncClient, login: Response):
 
 @pytest_asyncio.fixture
 async def create_slug(async_client: AsyncClient, login: Response):
-    access_token = login.json()["access_token"]
+    access_token = login.json()["data"]["access_token"]
 
     slug_create_payload: dict = {
         "custom_slug": "test-slug",

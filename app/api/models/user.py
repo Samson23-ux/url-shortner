@@ -17,7 +17,7 @@ from sqlalchemy import (
 from app.api.models.base import Base
 
 
-class UserType(enum.Enum):
+class UserType(str, enum.Enum):
     EMAIL = "email"
     GOOGLE = "google"
 

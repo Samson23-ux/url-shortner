@@ -11,8 +11,11 @@ class UserBase(BaseModel):
     type: UserType
     is_active: bool = False
     is_verified: bool = False
+    is_deactivated: bool = False
     delete_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    five_days_before: Optional[datetime] = None
+    seven_days_before: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -26,7 +29,7 @@ class EmailUser(UserBase):
     email: Optional[EmailStr] = None
 
 
-class UserInDB(UserBase, GoogleUser, EmailUser):
+class UserInDB(GoogleUser, EmailUser):
     hashed_password: Optional[str] = None
 
 

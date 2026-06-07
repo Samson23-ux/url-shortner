@@ -1,8 +1,8 @@
 from redis.retry import Retry
-from redis.cache import CacheConfig
+from redis.asyncio import Redis
 from collections.abc import AsyncGenerator
 from redis.backoff import ExponentialBackoff
-from redis.asyncio import Redis, ConnectionPool
+from redis.asyncio.connection import ConnectionPool
 from redis.exceptions import ConnectionError, TimeoutError
 
 from sqlalchemy.ext.asyncio import (
@@ -29,29 +29,27 @@ async_session = async_sessionmaker(
     autocommit=False,
     autoflush=False,
     class_=AsyncSession,
-    expire_on_commit=False
+    expire_on_commit=False,
 )
 
-redis_pool = ConnectionPool(
+redis_pool = ConnectionPool.from_url(
     get_settings().REDIS_URL,
+    decode_responses=True,
     max_connections=50,
     retry=Retry(ExponentialBackoff(cap=1.0, base=0.1), retries=5),
     retry_on_error=[ConnectionError, TimeoutError],
-    retry_on_timeout=True
+    retry_on_timeout=True,
 )
 
 """
 A redis client with:
 - a connection pool that maintains s set of live connections
 - retry mechanism with exponential backoff and jitters for randomness
-- client-side cache which reduces the network traffic with the server
 """
 
-redis_client: Redis = Redis(
-    connection_pool=redis_pool,
-    cache_config=CacheConfig(max_size=1000)
-)
+redis_client: Redis = Redis(connection_pool=redis_pool)
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-	async with async_session() as session:
-		yield session
+    async with async_session() as session:
+        yield session

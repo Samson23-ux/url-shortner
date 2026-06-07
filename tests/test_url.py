@@ -1,10 +1,11 @@
 import httpx
 import pytest
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+# pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
 class TestShortenUrl:
+    @pytest.mark.asyncio
     async def test_shorten_url(
         self, shorten_url: httpx.Response
     ):
@@ -13,13 +14,14 @@ class TestShortenUrl:
         assert shorten_url.status_code == 201
         assert json_res["data"]
 
+    @pytest.mark.asyncio
     async def test_shorten_url_exists(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
         url_create_payload: dict = {
             "original_url": "fake_long_url",
@@ -33,14 +35,15 @@ class TestShortenUrl:
 
         assert res.status_code == 409
 
+    @pytest.mark.asyncio
     async def test_shorten_url_with_slug(
         self, async_client: httpx.AsyncClient, login: httpx.Response
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
         url_create_payload: dict = {
             "original_url": "fake_long_url",
-            "slug": "test-custom-slug",
+            "custom_slug": "test-custom-slug",
         }
 
         res = await async_client.post(
@@ -51,19 +54,20 @@ class TestShortenUrl:
 
         json_res = res.json()
 
-        code_split: list[str] = json_res["data"]["shortened_url"].split()
+        code_split: list[str] = json_res["data"]["shortened_url"].split("/")
 
         assert res.status_code == 201
-        assert "test-custom-slug" in code_split
+        assert "test-custom-slug" == code_split[-1]
 
+    @pytest.mark.asyncio
     async def test_shorten_url_invalid_slug(
         self, async_client: httpx.AsyncClient, login: httpx.Response
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
         url_create_payload: dict = {
             "original_url": "fake_long_url",
-            "slug": "$test-custom-slug::::",
+            "custom_slug": "$test-slug::::",
         }
 
         res = await async_client.post(
@@ -76,48 +80,51 @@ class TestShortenUrl:
 
 
 class TestGetUrl:
+    @pytest.mark.asyncio
     async def test_redirect_to_url(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
-        shortened_url: str = shorten_url.json()["data"]["shortened_url"]
+        slug: str = shorten_url.json()["data"]["shortened_url"].split("/")[-1]
 
         res = await async_client.get(
-            f"/shorten/{shortened_url}",
+            f"/shorten/{slug}",
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
 
         assert res.status_code == 302
 
-    async def test_invalid_shortened_url(
+    @pytest.mark.asyncio
+    async def test_invalid_slug(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
         res = await async_client.get(
-            "/shorten/shortened_url",
+            "/shorten/slug",
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
 
         assert res.status_code == 404
 
-    async def get_all_urls(
+    @pytest.mark.asyncio
+    async def test_get_all_urls(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
         res = await async_client.get(
-            "/shorten/all",
+            "/shorten/urls/all",
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
 
@@ -128,22 +135,22 @@ class TestGetUrl:
 
 
 class TestUpdateUrl:
+    @pytest.mark.asyncio
     async def test_update_url(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
-        shortened_url: str = shorten_url.json()["data"]["shortened_url"]
+        access_token = login.json()["data"]["access_token"]
+        slug: str = shorten_url.json()["data"]["shortened_url"].split("/")[-1]
 
         update_payload: dict = {
-            "old_original_url": shortened_url,
             "new_original_url": "new_test_original_url",
         }
 
         res = await async_client.patch(
-            f"/shorten/{shortened_url}",
+            f"/shorten/{slug}",
             json=update_payload,
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
@@ -151,20 +158,23 @@ class TestUpdateUrl:
         json_res = res.json()
 
         assert res.status_code == 200
-        assert shortened_url == json_res["data"]["shortened_url"]
+        assert slug == json_res["data"]["shortened_url"].split("/")[-1]
 
+    @pytest.mark.asyncio
     async def test_update_invalid_url(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
-        update_payload: dict = {"new_original_url": "new_test_long_url"}
+        update_payload: dict = {
+            "new_original_url": "new_test_long_url"
+        }
 
         res = await async_client.patch(
-            "/shorten/shortened_url",
+            "/shorten/slug",
             json=update_payload,
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
@@ -173,39 +183,41 @@ class TestUpdateUrl:
 
 
 class TestDeleteUrl:
+    @pytest.mark.asyncio
     async def test_delete_url(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
-        shortened_url: str = shorten_url.json()["data"]["shortened_url"]
+        access_token = login.json()["data"]["access_token"]
+        slug: str = shorten_url.json()["data"]["shortened_url"].split("/")[-1]
 
         res = await async_client.delete(
-            f"/shorten/{shortened_url}",
+            f"/shorten/{slug}",
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
 
         assert res.status_code == 204
 
         res = await async_client.get(
-            f"/shorten/{shortened_url}",
+            f"/shorten/{slug}",
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
 
         assert res.status_code == 404
 
+    @pytest.mark.asyncio
     async def test_update_invalid_url(
         self,
         async_client: httpx.AsyncClient,
         shorten_url: httpx.Response,
         login: httpx.Response,
     ):
-        access_token = login.json()["access_token"]
+        access_token = login.json()["data"]["access_token"]
 
         res = await async_client.delete(
-            "/shorten/shortened_url",
+            "/shorten/slug",
             headers={"Authorization": f"Bearer {access_token}", "env": "test"},
         )
 

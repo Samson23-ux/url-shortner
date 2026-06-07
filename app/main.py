@@ -17,15 +17,6 @@ from app.core.exception_handlers import ExceptionHandler
 settings = get_settings()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    app.state.redis = redis_client
-    app.state.limiter = limiter
-    yield
-    await app.state.redis.aclose()
-    app.state.limiter.reset()
-
-
 sentry_sdk.init(
     dsn=settings.SENTRY_SDK_DSN,
     enable_logs=True,
@@ -36,11 +27,19 @@ sentry_sdk.init(
 )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.redis = redis_client
+    yield
+    await app.state.redis.aclose()
+
+
 app = FastAPI(title=settings.API_TITLE, version=settings.API_VERSION, lifespan=lifespan)
 
 
-app.add_middleware(SlowAPIMiddleware)
+app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 app.include_router(router.router)

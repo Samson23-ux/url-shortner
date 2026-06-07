@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Query
 from app.api.schemas.response import SuccessResponse
 from app.api.schemas.slug import SlugCreate, SlugUpdate, SlugResponse
 from app.dependencies import (
-    SlugService,
+    SlugServiceDep,
     CurrentActiveUser,
 )
 
@@ -22,7 +22,7 @@ router = APIRouter()
 async def create_slug(
     request: Request,
     slug_payload: SlugCreate,
-    slug_service: SlugService,
+    slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
 ):
     slug: SlugResponse = await slug_service.create_slug(curr_user, slug_payload)
@@ -37,12 +37,12 @@ async def create_slug(
 )
 async def get_all_slug(
     request: Request,
-    slug_service: SlugService,
+    slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
     sort: Annotated[
         str, Query(description="Sort by created_at")
     ] = None,
-    order: Annotated[str, Query(description="Order in asc or desc")] = None,
+    order: Annotated[str, Query(description="Order in asc or desc")] = "asc",
     cursor: Annotated[str, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
@@ -61,7 +61,7 @@ async def get_all_slug(
 async def get_slug(
     request: Request,
     slug: str,
-    slug_service: SlugService,
+    slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
 ):
     slug: SlugResponse = await slug_service.get_slug(curr_user, slug)
@@ -78,7 +78,7 @@ async def update_slug(
     request: Request,
     slug: str,
     slug_payload: SlugUpdate,
-    slug_service: SlugService,
+    slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
 ):
     slug: SlugResponse = await slug_service.update_slug(curr_user, slug_payload, slug)
@@ -93,7 +93,7 @@ async def update_slug(
 async def delete_slug(
     request: Request,
     slug: str,
-    slug_service: SlugService,
+    slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
 ):
     await slug_service.delete_slug(curr_user, slug)

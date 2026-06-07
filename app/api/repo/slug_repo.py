@@ -9,6 +9,7 @@ from app.api.repo.base import BaseRepository
 class SlugRepository(BaseRepository[SlugBase, Slug]):
     model = Slug
 
+    @staticmethod
     def _entity_to_model(entity: SlugBase) -> model:
         return Slug(**entity.model_dump())
 

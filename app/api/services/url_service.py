@@ -10,13 +10,12 @@ from app.api.models.url import Url
 from app.api.models.slug import Slug
 from app.api.models.user import User
 from app.core.config import get_settings
-from app.api.schemas.slug import SlugInDB
 from app.utils import generate_random_slug
 from app.api.repo.url_repo import UrlRepository
 from app.api.repo.slug_repo import SlugRepository
 from app.api.repo.redis_repo import RedisRepository
 from app.api.repo.unit_of_work import UnitOfWorkRepository
-from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse, UrlInDb
+from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
 from app.core.exceptions import (
     ServerError,
     SlugExistsError,
@@ -64,9 +63,9 @@ class UrlService:
 
         for _ in range(self.MAX_RETRIES):
             try:
-                slug_db: SlugInDB = SlugInDB(user_id=user_id, custom_slug=slug)
+                slug_db: Slug = Slug(user_id=user_id, custom_slug=slug)
 
-                self._slug_repo.add(slug_db)
+                self._slug_repo.add(model=slug_db)
                 await self._slug_repo.flush()
                 await self._slug_repo.refresh(slug_db)
 
@@ -116,7 +115,7 @@ class UrlService:
                 await self._redis_repo.create_filter(filter_key)
             await self._redis_repo.add_to_filter(filter_key, url)
 
-            url_db: UrlInDb = UrlInDb(
+            url_db: Url = Url(
                 user_id=user_id,
                 original_url=url,
                 slug_id=slug_id,
@@ -125,7 +124,7 @@ class UrlService:
                 + timedelta(days=get_settings().URL_EXPIRE_TIME),
             )
 
-        self._url_repo.add(url_db)
+        self._url_repo.add(model=url_db)
         await self._slug_repo.flush()
         await self._slug_repo.refresh(url_db)
 
@@ -149,17 +148,18 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
-        filter_key: str = f"users:{user_email}"
+        url_filter_key: str = f"users:{user_email}:url"
+        slug_filter_key: str = f"users:{user_email}:slug"
 
         try:
             slug: Slug = await self._create_slug(
-                payload_slug, filter_key, user_email, curr_user.id
+                payload_slug, slug_filter_key, user_email, curr_user.id
             )
-            shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug}"
+            shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug.custom_slug}"
 
             url_db: Url = await self._create_url(
                 payload_url,
-                filter_key,
+                url_filter_key,
                 slug.id,
                 user_email,
                 curr_user.id,
@@ -209,7 +209,7 @@ class UrlService:
 
             url_id, original_url, shortened_url, expire_at = url_db
 
-            if expire_at > datetime.now(timezone.utc):
+            if expire_at <= datetime.now(timezone.utc):
                 raise UrlExpiredError(url=shortened_url)
 
             # use redis counter to track clicks per day
@@ -225,7 +225,9 @@ class UrlService:
             return original_url
         except Exception as e:
             if isinstance(e, UrlNotFoundError):
-                raise UrlNotFoundError(url=slug)
+                raise UrlNotFoundError(slug=slug)
+            if isinstance(e, UrlExpiredError):
+                raise UrlExpiredError(url=shortened_url)
 
             sentry_sdk.capture_exception(e)
             sentry_logger.error(
@@ -238,7 +240,7 @@ class UrlService:
         self,
         curr_user: User,
         sort: str | None,
-        order: str | None,
+        order: str,
         cursor: str | None,
         limit: int,
     ) -> list[UrlResponse]:
@@ -248,9 +250,11 @@ class UrlService:
             user_email: str = curr_user.google_email
 
         try:
-            urls: Sequence[Url] = await self._url_repo.get_records(
+            data: dict = await self._url_repo.get_records(
                 sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
             )
+
+            urls: Sequence[Url] = data.get("data")
 
             if not urls:
                 sentry_logger.error("User {email} urls not found", email=user_email)
@@ -281,7 +285,7 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
-        url_db: Url | None = await self._url_repo.get_url(slug, Url)
+        url_db: tuple = await self._url_repo.get_url(slug, Url)
 
         if not url_db:
             sentry_logger.error(
@@ -290,10 +294,11 @@ class UrlService:
                 email=user_email,
             )
             raise UrlNotFoundError(slug=slug)
+        url_db: Url | None = url_db[0]
 
         try:
             old_url: str = url_db.original_url
-            filter_key: str = f"users:{user_email}"
+            filter_key: str = f"users:{user_email}:url"
             new_url: str = url_update.new_original_url
 
             url_db.original_url = new_url
@@ -302,7 +307,7 @@ class UrlService:
             await self._redis_repo.delete_filter_value(filter_key, old_url)
             await self._redis_repo.add_to_filter(filter_key, new_url)
 
-            await self._url_repo.add(model=url_db)
+            self._url_repo.add(model=url_db)
             await self._url_repo.commit()
             await self._url_repo.refresh(url_db)
 
@@ -330,7 +335,7 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
-        url_db: Url | None = await self._url_repo.get_url(slug, Url)
+        url_db: tuple = await self._url_repo.get_url(slug, Url)
 
         if not url_db:
             sentry_logger.error(
@@ -339,10 +344,11 @@ class UrlService:
                 email=user_email,
             )
             raise UrlNotFoundError(slug=slug)
+        url_db: Url | None = url_db[0]
 
         try:
             original_url: str = url_db.original_url
-            filter_key: str = f"users:{user_email}"
+            filter_key: str = f"users:{user_email}:url"
 
             await self._redis_repo.delete_filter_value(filter_key, original_url)
             await self._url_repo.delete(url_db)

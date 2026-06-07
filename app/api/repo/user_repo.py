@@ -11,6 +11,7 @@ from app.api.repo.base import BaseRepository
 class UserRepository(BaseRepository[UserBase, User]):
     model = User
 
+    @staticmethod
     def _entity_to_model(entity: UserBase) -> model:
         return User(**entity.model_dump())
 

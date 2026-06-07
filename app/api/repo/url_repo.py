@@ -12,6 +12,7 @@ from app.api.repo.base import BaseRepository
 class UrlRepository(BaseRepository[UrlBase, Url]):
     model = Url
 
+    @staticmethod
     def _entity_to_model(entity: UrlBase) -> model:
         return Url(**entity.model_dump())
 
@@ -55,4 +56,4 @@ class UrlRepository(BaseRepository[UrlBase, Url]):
         )
 
         res = await self._async_session.execute(stmt)
-        return res.scalar()
+        return res.first()

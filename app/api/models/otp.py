@@ -16,12 +16,12 @@ from sqlalchemy import (
 from app.api.models.base import Base
 
 
-class OtpPurpose(enum.Enum):
+class OtpPurpose(str, enum.Enum):
     EMAIL_SIGNUP = "email_signup"
     PASSWORD_RESET = "password_reset"
 
 
-class OtpStatus(enum.Enum):
+class OtpStatus(str, enum.Enum):
     VALID = "valid"
     USED = "used"
 

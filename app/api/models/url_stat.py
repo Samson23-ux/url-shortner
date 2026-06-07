@@ -23,7 +23,7 @@ class UrlStat(Base):
     url_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("urls.id", name="urls_urls_id_fk", ondelete="CASCADE")
     )
-    clicks: Mapped[int] = mapped_column(Integer)
+    clicks: Mapped[int] = mapped_column(Integer, default=0)
     date: Mapped[date] = mapped_column(Date)
 
 

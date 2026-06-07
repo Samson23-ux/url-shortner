@@ -3,7 +3,7 @@ import resend
 import secrets
 from uuid import UUID, uuid4
 from resend.exceptions import ApplicationError
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 
 
 from app.api.models.emails import Email
@@ -241,10 +241,11 @@ def flush_clicks():
         keys: list[str] = analytics_service.get_clicks_keys("clicks:*")
 
         for key in keys:
-            _, url_id, date = key.split(":")
+            _, url_id, click_date = key.split(":")
+            click_date = date.fromisoformat(click_date)
             clicks: int = int(analytics_service.get_clicks(key))
 
-            url_stat: UrlStatInDB = UrlStatInDB(url_id=url_id, clicks=clicks, date=date)
+            url_stat: UrlStatInDB = UrlStatInDB(url_id=url_id, clicks=clicks, date=click_date)
             analytics_service.upsert_click(url_stat)
     finally:
         analytics_service._analytics_repo.close()

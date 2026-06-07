@@ -48,11 +48,11 @@ async def redirect_to_url(
     curr_user: CurrentActiveUser,
 ):
     url: str = await url_service.redirect_to_url(curr_user, slug)
-    return RedirectResponse(url)
+    return RedirectResponse(url, status_code=302)
 
 
 @router.get(
-    "/shorten/all",
+    "/shorten/urls/all",
     status_code=200,
     description="Get all shortened url",
     response_model=SuccessResponse[list[UrlResponse]],
@@ -64,7 +64,7 @@ async def get_all_url(
     sort: Annotated[
         str, Query(description="Sort by created_at, last_updated_at, expire_at")
     ] = None,
-    order: Annotated[str, Query(description="Order in asc or desc")] = None,
+    order: Annotated[str, Query(description="Order in asc or desc")] = "asc",
     cursor: Annotated[str, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
@@ -78,7 +78,7 @@ async def get_all_url(
     "/shorten/{slug}",
     status_code=200,
     description="Update the original url associated to a shortened url",
-    response_class=SuccessResponse[UrlResponse],
+    response_model=SuccessResponse[UrlResponse],
 )
 async def update_url(
     request: Request,

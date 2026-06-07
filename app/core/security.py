@@ -38,6 +38,9 @@ async def encode_cursor(payload: dict) -> str:
 
 async def decode_cursor(cursor_string: str, curr_order: str) -> dict:
     try:
+        if not cursor_string:
+            return
+
         cursor_string = base64.b64decode(cursor_string)
         cursor_payload = json.loads(cursor_string)
 
@@ -45,7 +48,7 @@ async def decode_cursor(cursor_string: str, curr_order: str) -> dict:
             return None
         return cursor_payload
     except (json.JSONDecodeError, UnicodeDecodeError, binascii_error):
-        return None
+        return
 
 
 async def hash_password(password: str) -> str:
@@ -115,12 +118,15 @@ async def create_refresh_token(
 
 async def decode_token(token: str, key: str):
     try:
+        if token is None:
+            return
+
         payload: dict = jwt.decode(
             token=token, key=key, algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
     except JWTError:
-        return None
+        return
 
 
 async def prepare_tokens(token_data: TokenData):

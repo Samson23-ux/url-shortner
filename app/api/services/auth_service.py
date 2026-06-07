@@ -27,12 +27,12 @@ from app.api.schemas.auth import (
     ResendOtp,
     PasswordUpdate,
     PasswordReset,
+    ReactivateUser
 )
 from app.core.exceptions import (
     UserExistsError,
     InvalidOtpError,
     ServerError,
-    UserNotFoundError,
     CredentialError,
     AuthenticationError,
     PasswordMissingError,
@@ -94,7 +94,10 @@ class AuthService:
             await user_service.create_user(user)
 
         user: User | None = await user_service._get_user_by_email(email=user_email)
-        send_verification_email.delay(str(uuid4()), user_email, str(user.id), "email_signup")
+
+        send_verification_email.delay(
+            str(uuid4()), user_email, str(user.id), "email_signup"
+        )
 
         sentry_logger.info(
             "Email and password sign up completed for user {email}",
@@ -152,7 +155,7 @@ class AuthService:
 
         self._uow = uow
         self._user_repo = UserRepository(self._uow._session)
-        self._otp_repo = OtpRepository(self._uow._session)
+        self._otp_repo._async_session = self._uow._session
 
         user_email: str = email_verify.email
 
@@ -218,14 +221,17 @@ class AuthService:
 
         if not existing_user:
             sentry_logger.error("User with email {email} not found", email=user_email)
-            raise UserNotFoundError(user_email=user_email)
+            raise CredentialError()
 
         try:
+            # invalidate all existing codes
             await self._otp_repo.update_records(
                 {"status": "used"}, user_id=existing_user.id, status="valid"
             )
 
-            ### resend email
+            send_verification_email.delay(
+                str(uuid4()), user_email, str(existing_user.id), otp_resend.purpose
+            )
 
             sentry_logger.info(
                 "OTP code resent to user {email}",
@@ -248,7 +254,13 @@ class AuthService:
             email=user_email, is_verified=True, is_deactivated=False
         )
 
-        if not existing_user or not await verify_password(
+        if not existing_user:
+            sentry_logger.error(
+                "Invalid credentials received from user {email}", email=user_email
+            )
+            raise CredentialError()
+
+        if not await verify_password(
             email_login.password, existing_user.hashed_password
         ):
             sentry_logger.error(
@@ -352,7 +364,7 @@ class AuthService:
 
     async def reset_password(
         self, password_reset: PasswordReset, user_service: UserService
-    ):
+    ):        
         existing_user: User = await user_service.get_user_by_email(
             email=password_reset.email, is_verified=True, is_deactivated=False
         )
@@ -400,18 +412,27 @@ class AuthService:
             email=user_email,
         )
 
-    async def reactivate_account(self, email: str, user_service: UserService):
-        existing_user: User = await user_service.get_user_by_email(
-            email=email, is_verified=True, is_active=False, is_deactivated=True
-        )
+    async def reactivate_account(self, reactivate_user: ReactivateUser, user_service: UserService):
+        user_email: str = reactivate_user.email
+
+        if reactivate_user.user_type.lower() == "google":
+            existing_user: User = await user_service.get_user_by_email(
+                google_email=user_email, is_verified=True, is_active=False, is_deactivated=True
+            )
+        else:
+            existing_user: User = await user_service.get_user_by_email(
+                email=user_email, is_verified=True, is_active=False, is_deactivated=True
+            )
 
         existing_user.delete_at = None
         existing_user.is_deactivated = False
+        existing_user.five_days_before = None
+        existing_user.seven_days_before = None
         await user_service.update_user(existing_user)
 
         sentry_logger.info(
             "User {email} account reactivated",
-            email=email,
+            email=user_email,
         )
 
     async def delete_account(self, curr_user: User, user_service: UserService):

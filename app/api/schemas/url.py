@@ -10,20 +10,9 @@ from app.api.schemas.slug import SLUG_PATTERN, RESERVED_WORDS
 
 
 class UrlBase(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     original_url: str
-
-
-class UrlInDb(UrlBase):
-    model_config = ConfigDict(from_attributes=True)
-
-    user_id: UUID
-    slug_id: UUID
-    shortened_url: str
-    last_updated_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    expire_at: datetime
 
 
 class ShortenUrl(UrlBase):
@@ -42,10 +31,14 @@ class ShortenUrl(UrlBase):
 
 
 class UrlUpdate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     new_original_url: str
-    
+
 
 class UrlResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     user_id: UUID
     slug_id: UUID
