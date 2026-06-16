@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
@@ -24,7 +25,7 @@ class Token(AuthBase):
 class EmailVerify(AuthBase):
     email: str
     otp_code: str
-    password: str = Field(
+    password: Optional[str] = Field(
         default=None,
         min_length=8,
         description="A password value should be passed for password reset",

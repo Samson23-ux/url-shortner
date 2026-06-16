@@ -106,7 +106,7 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
         res = await self._async_session.execute(stmt)
         records = res.scalars().all()
 
-        has_more: bool = len(records)
+        has_more: bool = len(records) > limit
 
         payload: dict = {
             "created_at": records[:limit][-1].created_at.isoformat(),

@@ -213,6 +213,7 @@ class SlugService:
 
             await self._redis_repo.delete_filter_value(filter_key, custom_slug)
             await self._slug_repo.delete(slug_db)
+            await self._slug_repo.commit()
 
             sentry_logger.info(
                 "{slug} deleted for user {email}", slug=custom_slug, email=user_email

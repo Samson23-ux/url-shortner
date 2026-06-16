@@ -18,7 +18,7 @@ class UrlBase(BaseModel):
 class ShortenUrl(UrlBase):
     model_config = ConfigDict(str_to_lower=True)
 
-    custom_slug: str = Field(default=None, min_length=3, max_length=20)
+    custom_slug: Optional[str] = Field(default=None, min_length=3, max_length=20)
 
     @model_validator(mode="after")
     def validate_slug(self) -> Self:

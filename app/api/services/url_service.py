@@ -69,7 +69,7 @@ class UrlService:
                 await self._slug_repo.flush()
                 await self._slug_repo.refresh(slug_db)
 
-                if not self._redis_repo.filter_exists(filter_key):
+                if not await self._redis_repo.filter_exists(filter_key):
                     await self._redis_repo.create_filter(filter_key)
                 await self._redis_repo.add_to_filter(filter_key, slug)
 
@@ -111,7 +111,7 @@ class UrlService:
                 )
                 url_db.last_updated_at = datetime.now(timezone.utc)
         else:
-            if not self._redis_repo.filter_exists(filter_key):
+            if not await self._redis_repo.filter_exists(filter_key):
                 await self._redis_repo.create_filter(filter_key)
             await self._redis_repo.add_to_filter(filter_key, url)
 
@@ -353,6 +353,7 @@ class UrlService:
 
             await self._redis_repo.delete_filter_value(filter_key, original_url)
             await self._url_repo.delete(url_db)
+            await self._url_repo.commit()
 
             sentry_logger.info(
                 "{url} deleted for user {email}", url=original_url, email=user_email

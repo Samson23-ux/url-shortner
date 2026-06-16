@@ -45,7 +45,7 @@ async def decode_cursor(cursor_string: str, curr_order: str) -> dict:
         cursor_payload = json.loads(cursor_string)
 
         if cursor_payload["order"] != curr_order.lower():
-            return None
+            return
         return cursor_payload
     except (json.JSONDecodeError, UnicodeDecodeError, binascii_error):
         return
