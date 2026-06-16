@@ -9,3 +9,7 @@ class SuccessResponse(BaseModel, Generic[T]):
     status: str = "success"
     message: str
     data: Optional[T | list[T]] = None
+
+
+class AllSuccessResponse(SuccessResponse):
+    cursor: str | None

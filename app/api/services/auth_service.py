@@ -62,6 +62,36 @@ class AuthService:
 
         return access_token, refresh_token_payload.get("refresh_token")
 
+    async def _revoke_refresh_token(self, refresh_token: str) -> tuple:
+        refresh_token: dict = await decode_token(
+            refresh_token, get_settings().REFRESH_TOKEN_SECRET_KEY
+        )
+
+        if not refresh_token:
+            sentry_logger.error("Inavlid refresh token received during refresh")
+            raise AuthenticationError()
+
+        refresh_token_id: str = refresh_token["jti"]
+        key: str = f"tokens:{refresh_token_id}"
+
+        refresh_token_db: dict = await self._redis_repo.get_refresh_token(key)
+
+        if not refresh_token_db:
+            sentry_logger.error("Inavlid refresh token received during refresh")
+            raise AuthenticationError()
+
+        user_email: str = refresh_token_db["email"]
+        user_type: str = refresh_token_db["user_type"]
+
+        try:
+            await self._redis_repo.delete_refresh_token(key)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            sentry_logger.error("Error occurred while deleting refresh token from redis")
+            raise ServerError() from e
+
+        return user_email, user_type
+
     async def sign_up_with_email(
         self, email_login: EmailLogin, user_service: UserService
     ):
@@ -93,11 +123,11 @@ class AuthService:
             )
             await user_service.create_user(user)
 
-        user: User | None = await user_service._get_user_by_email(email=user_email)
+            user: User | None = await user_service._get_user_by_email(email=user_email)
 
-        send_verification_email.delay(
-            str(uuid4()), user_email, str(user.id), "email_signup"
-        )
+            send_verification_email.delay(
+                str(uuid4()), user_email, str(user.id), "email_signup"
+            )
 
         sentry_logger.info(
             "Email and password sign up completed for user {email}",
@@ -147,6 +177,7 @@ class AuthService:
 
     async def verify_account(
         self,
+        refresh_token: str | None,
         uow: UnitOfWorkRepository,
         email_verify: EmailVerify,
     ):
@@ -166,7 +197,7 @@ class AuthService:
             raise InvalidOtpError()
 
         otp: Otp = await self._otp_repo.get_record(
-            otp=email_verify.otp_code, user_id=existing_user.id, expires_at="valid"
+            otp=email_verify.otp_code, user_id=existing_user.id, status="valid", expires_at=True
         )
 
         if not otp:
@@ -179,6 +210,7 @@ class AuthService:
             if otp.purpose == "email_signup":
                 existing_user.is_verified = True
             else:
+                # reset password verfication
                 if not email_verify.password:
                     sentry_logger.error(
                         (
@@ -188,9 +220,15 @@ class AuthService:
                         email=user_email,
                     )
                     raise PasswordMissingError()
+
                 existing_user.hashed_password = await hash_password(
                     email_verify.password
                 )
+                existing_user.is_active = False
+
+                if refresh_token:
+                    # revoke existing refresh token to prevent usage in refresh
+                    _ = await self._revoke_refresh_token(refresh_token)
 
             otp.status = "used"
             self._otp_repo.add(model=otp)
@@ -216,7 +254,7 @@ class AuthService:
         user_email: str = otp_resend.email
 
         existing_user: User | None = await user_service._get_user_by_email(
-            email=user_email
+            email=user_email, is_verified=False
         )
 
         if not existing_user:
@@ -281,32 +319,7 @@ class AuthService:
         return access_token, refresh_token
 
     async def create_auth_tokens(self, refresh_token: str):
-        refresh_token: dict = await decode_token(
-            refresh_token, get_settings().REFRESH_TOKEN_SECRET_KEY
-        )
-
-        if not refresh_token:
-            sentry_logger.error("Inavlid refresh token received during refresh")
-            raise AuthenticationError()
-
-        refresh_token_id: str = refresh_token["jti"]
-        key: str = f"tokens:{refresh_token_id}"
-
-        refresh_token_db: dict = await self._redis_repo.get_refresh_token(key)
-
-        if not refresh_token_db:
-            sentry_logger.error("Inavlid refresh token received during refresh")
-            raise AuthenticationError()
-
-        user_email: str = refresh_token_db["email"]
-        user_type: str = refresh_token_db["user_type"]
-        try:
-            await self._redis_repo.delete_refresh_token(refresh_token_id)
-        except Exception as e:
-            sentry_sdk.capture_exception(e)
-            sentry_logger.error("Error occurred while delete refresh token from redis")
-            raise ServerError() from e
-
+        user_email, user_type = await self._revoke_refresh_token(refresh_token)
         access_token, refresh_token = await self._get_tokens(user_email, user_type)
 
         sentry_logger.info(
@@ -374,15 +387,17 @@ class AuthService:
         )
 
         sentry_logger.info(
-            "User {email} password reset completed",
+            "Verification code sent to {email} for password reset",
             email=password_reset.email,
         )
 
-    async def logout(self, curr_user: User, user_service: UserService):
+    async def logout(self, curr_user: User, user_service: UserService, refresh_token: str):
         if curr_user.type == "email":
             user_email: str = curr_user.email
         else:
             user_email: str = curr_user.google_email
+
+        _ = await self._revoke_refresh_token(refresh_token)
 
         curr_user.is_active = False
         await user_service.update_user(curr_user)
@@ -392,7 +407,7 @@ class AuthService:
             email=user_email,
         )
 
-    async def deactivate_account(self, curr_user: User, user_service: UserService):
+    async def deactivate_account(self, curr_user: User, user_service: UserService, refresh_token: str):
         if curr_user.type == "email":
             user_email: str = curr_user.email
         else:
@@ -406,6 +421,8 @@ class AuthService:
         curr_user.five_days_before = delete_at - timedelta(days=5)
         curr_user.seven_days_before = delete_at - timedelta(days=7)
         await user_service.update_user(curr_user)
+
+        _ = await self._revoke_refresh_token(refresh_token)
 
         sentry_logger.info(
             "User {email} account deactivated",
@@ -435,13 +452,14 @@ class AuthService:
             email=user_email,
         )
 
-    async def delete_account(self, curr_user: User, user_service: UserService):
+    async def delete_account(self, curr_user: User, user_service: UserService, refresh_token: str):
         if curr_user.type == "email":
             user_email: str = curr_user.email
         else:
             user_email: str = curr_user.google_email
 
         await user_service.delete_user(curr_user)
+        _ = await self._revoke_refresh_token(refresh_token)
 
         sentry_logger.info(
             "User {email} account deleted",

@@ -87,6 +87,7 @@ class SlugService:
                 sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
             )
 
+            cursor: str = data.get("cursor")
             slugs: Sequence[Slug] = data.get("data")
 
             if not slugs:
@@ -98,7 +99,7 @@ class SlugService:
                 slug_out.append(SlugResponse.model_validate(slug))
 
             sentry_logger.info("User {email} slugs retrieved", email=user_email)
-            return slug_out
+            return slug_out, cursor
         except Exception as e:
             if isinstance(e, SlugsNotFoundError):
                 raise SlugsNotFoundError()

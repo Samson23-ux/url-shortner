@@ -51,7 +51,7 @@ async def sign_up_with_email(
     return SuccessResponse(
         message=(
             "Sign up completed successfully."
-            "Check your email for verification code and instrcutions"
+            "Check your email for verification code and instructions"
         )
     )
 
@@ -65,7 +65,7 @@ async def sign_up_with_email(
 @limiter.limit("3/5minute")
 async def sign_in_with_google(request: Request):
     redirect_uri = request.url_for("google_callback")
-    await oauth.google.authorize_redirect(request, redirect_uri)
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @router.get(
@@ -111,7 +111,8 @@ async def verify_account(
     email_verify: EmailVerify,
     auth_service: AuthServiceDep,
 ):
-    await auth_service.verify_account(uow, email_verify)
+    refresh_token: str = request.cookies.get("refresh_token")
+    await auth_service.verify_account(refresh_token, uow, email_verify)
     return SuccessResponse(message="User email verified successfully")
 
 
@@ -264,7 +265,8 @@ async def log_out(
     auth_service: AuthServiceDep,
     user_service: UserServiceDep,
 ):
-    await auth_service.logout(curr_user, user_service)
+    refresh_token: str = request.cookies.get("refresh_token")
+    await auth_service.logout(curr_user, user_service, refresh_token)
     return SuccessResponse(message="Log out completed successfully")
 
 
@@ -284,7 +286,8 @@ async def deactivate_account(
     auth_service: AuthServiceDep,
     user_service: UserServiceDep,
 ):
-    await auth_service.deactivate_account(curr_user, user_service)
+    refresh_token: str = request.cookies.get("refresh_token")
+    await auth_service.deactivate_account(curr_user, user_service, refresh_token)
     return SuccessResponse(message="Account deactivated successfully")
 
 
@@ -315,4 +318,5 @@ async def delete_account(
     auth_service: AuthServiceDep,
     user_service: UserServiceDep,
 ):
-    await auth_service.delete_account(curr_user, user_service)
+    refresh_token: str = request.cookies.get("refresh_token")
+    await auth_service.delete_account(curr_user, user_service, refresh_token)

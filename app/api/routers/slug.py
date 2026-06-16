@@ -2,8 +2,8 @@ from typing import Annotated
 from fastapi import APIRouter, Request, Query
 
 
-from app.api.schemas.response import SuccessResponse
 from app.api.schemas.slug import SlugCreate, SlugUpdate, SlugResponse
+from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
     SlugServiceDep,
     CurrentActiveUser,
@@ -33,7 +33,7 @@ async def create_slug(
     "/slugs",
     status_code=200,
     description="Get all craeted slug",
-    response_model=SuccessResponse[list[SlugResponse]]
+    response_model=AllSuccessResponse[list[SlugResponse]]
 )
 async def get_all_slug(
     request: Request,
@@ -46,10 +46,10 @@ async def get_all_slug(
     cursor: Annotated[str, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
-    slugs: list[SlugResponse] = await slug_service.get_all_slugs(
+    slugs, cursor = await slug_service.get_all_slugs(
         curr_user, sort, order, cursor, limit
     )
-    return SuccessResponse(message="Slugs retrieved successfully", data=slugs)
+    return AllSuccessResponse(message="Slugs retrieved successfully", data=slugs, cursor=cursor)
 
 
 @router.get(

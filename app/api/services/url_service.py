@@ -254,6 +254,7 @@ class UrlService:
                 sort, order, cursor, limit, user_id=curr_user.id, is_valid=True
             )
 
+            cursor: str = data.get("cursor")
             urls: Sequence[Url] = data.get("data")
 
             if not urls:
@@ -265,7 +266,7 @@ class UrlService:
                 url_out.append(UrlResponse.model_validate(url))
 
             sentry_logger.info("User {email} urls retrieved", email=user_email)
-            return url_out
+            return url_out, cursor
         except Exception as e:
             if isinstance(e, UrlsNotFoundError):
                 raise UrlsNotFoundError()

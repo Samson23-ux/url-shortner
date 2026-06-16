@@ -40,8 +40,8 @@ class UserService:
     async def _get_user_by_email(self, **filters) -> User | None:
         return await self._user_repo.get_record(**filters)
 
-    def get_deactivated_users(self) -> tuple:
-        return self._user_repo._get_records(User.email, days_to_deactivation=True)
+    def get_deactivated_users(self) -> list[tuple]:
+        return self._user_repo._get_records(User.email, User.delete_at, days_to_deactivation=True)
 
     async def create_user(self, user: UserInDB):
         try:
@@ -55,7 +55,7 @@ class UserService:
                 email=user.email
             )
             raise ServerError() from e
-        
+
     async def update_user(self, user: User):
         try:
             self._user_repo.add(model=user)

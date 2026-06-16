@@ -8,6 +8,8 @@ __pycache__/
 
 # Celery beat
 celerybeat-schedule
+celerybeat-schedule-wal
+celerybeat-schedule-shm
 
 # Distribution / packaging
 .Python

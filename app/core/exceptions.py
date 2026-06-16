@@ -14,6 +14,12 @@ class ServerError(AppException):
     pass
 
 
+class TransientError(AppException):
+    """Worker Transient error"""
+
+    pass
+
+
 class AuthenticationError(AppException):
     """User not authenticated."""
 

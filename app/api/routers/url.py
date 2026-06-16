@@ -3,8 +3,8 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import RedirectResponse
 
 
-from app.api.schemas.response import SuccessResponse
 from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
+from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
     UrlServiceDep,
     CurrentActiveUser,
@@ -55,7 +55,7 @@ async def redirect_to_url(
     "/shorten/urls/all",
     status_code=200,
     description="Get all shortened url",
-    response_model=SuccessResponse[list[UrlResponse]],
+    response_model=AllSuccessResponse[list[UrlResponse]],
 )
 async def get_all_url(
     request: Request,
@@ -68,10 +68,10 @@ async def get_all_url(
     cursor: Annotated[str, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
-    urls: list[UrlResponse] = await url_service.get_all_urls(
+    urls, cursor = await url_service.get_all_urls(
         curr_user, sort, order, cursor, limit
     )
-    return SuccessResponse(message="Urls retrieved successfully", data=urls)
+    return AllSuccessResponse(message="Urls retrieved successfully", data=urls, cursor=cursor)
 
 
 @router.patch(

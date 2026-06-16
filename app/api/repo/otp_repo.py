@@ -1,4 +1,5 @@
 from typing import Any
+from datetime import datetime, timezone
 
 
 from app.api.models.otp import Otp
@@ -22,6 +23,8 @@ class OtpRepository(BaseRepository[AuthBase, Otp]):
             filter_conditions.append(self.model.user_id == filters["user_id"])
         if "status" in filters:
             filter_conditions.append(self.model.status == filters["status"])
+        if "expires_at" in filters:
+            filter_conditions.append(self.model.expires_at > datetime.now(timezone.utc))
 
         return filter_conditions
 

@@ -147,12 +147,11 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
         filter_conditions: list[Any] = self._get_filters(**filters)
 
         if columns:
-            stmt = select(*columns)
+            res = self._sync_session.execute(select(*columns).where(*filter_conditions))
+            return res.all()
         else:
-            stmt = select(self.model)
-
-        res = self._sync_session.execute(stmt.where(*filter_conditions))
-        return res.scalars().all()
+            res = self._sync_session.execute(select(self.model).where(*filter_conditions))
+            return res.scalars().all()
 
     def sync_add(self, entity: OtpInDB):
         model = self._entity_to_model(entity)
@@ -169,6 +168,10 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
     def sync_rollback(self):
         self._sync_session.rollback()
+
+    def sync_delete(self, model: SqlalchemyModel):
+        self._sync_session.delete(model)
+        self._sync_session.flush()
 
     def close(self):
         self._sync_session.close()

@@ -10,22 +10,6 @@ from app.api.repo.base import BaseRepository
 class EmailRepository(BaseRepository[EmailBase, Email]):
     model = Email
 
-    def flush(self):
-        self._sync_session.flush()
-
-    def refresh(self, model: Email):
-        self._sync_session.refresh(model)
-
-    def commit(self):
-        self._sync_session.commit()
-
-    def rollback(self):
-        self._sync_session.rollback()
-
-    def delete(self, model: Email):
-        self._sync_session.delete(model)
-        self._sync_session.flush()
-
     def get_record(
         self, **filters
     ) -> Email | None:

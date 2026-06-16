@@ -1,8 +1,8 @@
-import httpx
 import resend
 import secrets
+import asyncpg
 from uuid import UUID, uuid4
-from resend.exceptions import ApplicationError
+from resend.exceptions import ResendError
 from datetime import datetime, timezone, timedelta, date
 
 
@@ -11,6 +11,7 @@ from app.api.schemas.auth import OtpInDB
 from app.core.config import get_settings
 from app.task.celery_app import celery_app
 from app.api.schemas.emails import EmailInDB
+from app.core.exceptions import TransientError
 from app.api.repo.otp_repo import OtpRepository
 from app.api.schemas.analytics import UrlStatInDB
 from app.api.repo.user_repo import UserRepository
@@ -79,7 +80,7 @@ def verification_message(otp: str):
                             <tr>
                             <td align="center" style="padding-bottom:16px;">
                                 <p style="margin:0;color:#555555;font-size:15px;line-height:1.6;">
-                                Use the code below to complete your verification. It expires in <strong>5 minutes</strong>.
+                                Use the code below to complete your verification. It expires in <strong>15 minutes</strong>.
                                 </p>
                             </td>
                             </tr>
@@ -106,17 +107,70 @@ def verification_message(otp: str):
             """
 
 
-def reminder_message():
-    return ""
+def reminder_message(deletion_date: date):
+    formatted_date = deletion_date.strftime("%B %d, %Y")
+    return f"""
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset="UTF-8" />
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                </head>
+                <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,sans-serif;">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+                    <tr>
+                        <td align="center">
+                        <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;padding:40px;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                            <tr>
+                            <td align="center" style="padding-bottom:24px;">
+                                <h2 style="margin:0;color:#1a1a1a;font-size:22px;">Account Deletion Reminder</h2>
+                            </td>
+                            </tr>
+                            <tr>
+                            <td align="center" style="padding-bottom:16px;">
+                                <p style="margin:0;color:#555555;font-size:15px;line-height:1.6;">
+                                Your deactivated account is scheduled for permanent deletion on the date below. After this date, your account and all associated data cannot be recovered.
+                                </p>
+                            </td>
+                            </tr>
+                            <tr>
+                            <td align="center" style="padding:24px 0;">
+                                <div style="display:inline-block;background:#fff3cd;border-radius:8px;padding:16px 40px;border-left:4px solid #ff9800;">
+                                <span style="font-size:24px;font-weight:bold;color:#ff9800;">{formatted_date}</span>
+                                </div>
+                            </td>
+                            </tr>
+                            <tr>
+                            <td align="center" style="padding-top:20px;padding-bottom:10px;">
+                                <p style="margin:0;color:#555555;font-size:14px;line-height:1.6;">
+                                <strong>To prevent permanent deletion, reactivate your account before the scheduled date.</strong>
+                                </p>
+                            </td>
+                            </tr>
+                            <tr>
+                            <td align="center" style="padding-top:16px;">
+                                <p style="margin:0;color:#999999;font-size:13px;">
+                                If you have any questions, please contact our support team.
+                                </p>
+                            </td>
+                            </tr>
+                        </table>
+                        </td>
+                    </tr>
+                    </table>
+                </body>
+            </html>
+            """
 
 
 class BaseTaskWithFailure(celery_app.Task):
     # errors to retry for
     autoretry_for = (
-        httpx.TimeoutException,
-        httpx.ConnectError,
-        ConnectionError,
-        ApplicationError,
+        TransientError,
+        asyncpg.CannotConnectNowError,
+        asyncpg.ConnectionFailureError,
+        asyncpg.TooManyConnectionsError,
+        asyncpg.ConnectionDoesNotExistError
     )
 
     # maximum retry value
@@ -157,8 +211,8 @@ def send_verification_email(
             email: str = proccessed_email.processed_emails.get("emails")[0]
 
         if not proccessed_email or email != recipient_email:
-            otp: str = secrets.token_urlsafe(25)
-            resend.api_key = get_settings().API_EMAIL
+            otp: str = str(secrets.randbelow(900000) + 100000)
+            resend.api_key = get_settings().RESEND_API_KEY
 
             resend.Emails.send(
                 {
@@ -183,6 +237,10 @@ def send_verification_email(
 
             otp_service.create_otp(otp_payload)
             email_service.create_email(email_payload)
+    except ResendError as e:
+        if hasattr(e, "code") and e.code >= 500:
+            raise TransientError() from e
+        raise
     finally:
         otp_service._otp_repo.close()
         email_service._email_repo.close()
@@ -194,40 +252,54 @@ def send_reminder_email(email_id: UUID = uuid4()):
         user_service = get_user_service()
         email_service = get_email_service()
 
-        deactivated_emails = user_service.get_deactivated_users()
+        deactivated_users = user_service.get_deactivated_users()
 
-        processed_emails: Email | None = email_service.get_proccessed_emails(email_id)
+        deactivated_emails = [e for e, _ in deactivated_users]
 
-        if processed_emails:
-            recipient_emails = processed_emails.processed_emails.get("emails")
+        email_db: Email | None = email_service.get_proccessed_emails(email_id)
+
+        if email_db:
+            processed_emails = email_db.processed_emails.get("emails")
         else:
-            recipient_emails = []
+            processed_emails = []
             email_payload: EmailInDB = EmailInDB(
-                id=email_id, processed_emails=processed_emails
+                id=email_id, processed_emails={}
             )
 
-        emails: list[str] = list(set(deactivated_emails).difference(set(recipient_emails)))
+        recipients = []
+        unprocessed_emails: list[str] = list(set(deactivated_emails).difference(set(processed_emails)))
 
-        for email in emails:
-            resend.api_key = get_settings().API_EMAIL
+        for email in unprocessed_emails:
+            for user in deactivated_users:
+                if email in user:
+                    recipients.append(user)
+
+        for email, date in recipients:
+            resend.api_key = get_settings().RESEND_API_KEY
 
             resend.Emails.send(
                 {
                     "from": get_settings().API_EMAIL,
                     "to": email,
                     "subject": "Deactivation Reminder",
-                    "html": reminder_message(),
+                    "html": reminder_message(date.date),
                 }
             )
 
-            recipient_emails.append(email)
+            processed_emails.append(email)
 
-            if processed_emails:
-                processed_emails.processed_emails.update({"emails": recipient_emails})
-                email_service.update_processed_emails(processed_emails)
+            if email_db:
+                email_db.processed_emails.update({"emails": processed_emails})
+                email_service.update_processed_emails(email_db)
             else:
-                email_payload.processed_emails = recipient_emails
+                email_payload.processed_emails["emails"] = processed_emails
                 email_service.create_email(email_payload)
+
+                email_db: Email | None = email_service.get_proccessed_emails(email_id)
+    except ResendError as e:
+        if hasattr(e, "code") and e.code >= 500:
+            raise TransientError() from e
+        raise
     finally:
         user_service._user_repo.close()
         email_service._email_repo.close()

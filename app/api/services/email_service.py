@@ -19,9 +19,9 @@ class EmailService:
         return email
 
     def create_email(self, email_payload: EmailInDB):
-        self._email_repo.add(entity=email_payload)
-        self._email_repo.commit()
+        self._email_repo.sync_add(entity=email_payload)
+        self._email_repo.sync_commit()
 
     def update_processed_emails(self, email: Email):
-        self._email_repo.add(model=email)
-        self._email_repo.commit()
+        self._email_repo.sync_add(model=email)
+        self._email_repo.sync_commit()
