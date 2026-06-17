@@ -274,7 +274,7 @@ def send_reminder_email(email_id: UUID = uuid4()):
                 if email in user:
                     recipients.append(user)
 
-        for email, date in recipients:
+        for email, delete_at in recipients:
             resend.api_key = get_settings().RESEND_API_KEY
 
             resend.Emails.send(
@@ -282,7 +282,7 @@ def send_reminder_email(email_id: UUID = uuid4()):
                     "from": get_settings().API_EMAIL,
                     "to": email,
                     "subject": "Deactivation Reminder",
-                    "html": reminder_message(date.date),
+                    "html": reminder_message(delete_at.date()),
                 }
             )
 

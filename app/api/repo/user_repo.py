@@ -34,10 +34,8 @@ class UserRepository(BaseRepository[UserBase, User]):
             today: datetime = datetime.now(timezone.utc)
             filter_conditions.append(
                 and_(
-                    self.model.seven_days_before
-                    >= today,
-                    self.model.five_days_before
-                    <= today,
+                    today >= self.model.seven_days_before,
+                    today <= self.model.five_days_before,
                 )
             )
         if "delete_deactivated" in filters:
