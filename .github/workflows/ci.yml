@@ -1,0 +1,68 @@
+name: CI Workflow
+
+on:
+  push:
+    branches: [main]
+on:
+  pull:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run Tests
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis/redis-stack-server:latest
+        ports:
+          - 6379:6379
+
+    env:
+      URL_EXPIRE_TIME: 7
+      OTP_EXPIRE_TIME: 15
+      ACCESS_TOKEN_EXPIRE_TIME: 15
+      REFRESH_TOKEN_EXPIRE_TIME: 3
+      REDIS_URL: redis://localhost:6379
+      API_BROKER: amqp://guest:guest@localhost:5672//
+      SYNC_DB_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/url_shortner
+      ASYNC_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/url_shortner
+      ASYNC_TEST_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+
+      CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      API_EMAIL: ${{ secrets.API_EMAIL }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      SENTRY_SDK_DSN: ${{ secrets.SENTRY_SDK_DSN }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SESSION_SECRET_KEY: ${{ secrets.SESSION_SECRET_KEY }}
+      ARGON2_PASSWORD_PEPPER: ${{ secrets.ARGON_PEPPER_PASSWORD }}
+      ACCESS_TOKEN_SECRET_KEY: ${{ secrets.ACCESS_TOKEN_SECRET_KEY }}
+      REFRESH_TOKEN_SECRET_KEY: ${{ secrets.REFRESH_TOKEN_SECRET_KEY }}
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install Dependencies
+        run: |
+          uv sync
+          uv add ruff
+      
+      - name: Lint
+        run: uv run ruff check .
+      
+      - name: Test
+        run: uv run pytest -q
