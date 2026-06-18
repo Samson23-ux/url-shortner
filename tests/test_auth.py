@@ -18,7 +18,7 @@ class TestSignUpWithEmail:
         assert create_user.status_code == 201
         assert json_res["message"] == (
             "Sign up completed successfully."
-            "Check your email for verification code and instrcutions"
+            "Check your email for verification code and instructions"
         )
 
     @pytest.mark.asyncio

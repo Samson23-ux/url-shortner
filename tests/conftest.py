@@ -1,5 +1,6 @@
 import pytest_asyncio
 from uuid import uuid7
+from sqlalchemy import text
 from redis.asyncio import Redis
 from sqlalchemy.pool import NullPool
 from asgi_lifespan import LifespanManager
@@ -33,11 +34,35 @@ async def async_engine():
     )
 
     async with async_db_engine.begin() as conn:
+        await conn.execute(text("""
+            CREATE OR REPLACE FUNCTION uuid_generate_v7()
+                RETURNS UUID
+                LANGUAGE SQL
+                VOLATILE
+                AS $$
+                    SELECT encode(
+                        set_bit(
+                            set_bit(
+                                overlay(
+                                    uuid_send(gen_random_uuid())
+                                    placing substring(int8send(floor(extract(epoch FROM clock_timestamp()) * 1000)::bigint) FROM 3)
+                                    FROM 1 FOR 6
+                                ),
+                                52, 1
+                            ),
+                            53, 1
+                        ),
+                        'hex'
+                    )::uuid
+                $$;
+        """))
         await conn.run_sync(Base.metadata.create_all)
 
     yield async_db_engine
 
     async with async_db_engine.begin() as conn:
+        await conn.execute(text("DROP FUNCTION IF EXISTS uuid_generate_v7 CASCADE"))
+        await conn.execute(text("DROP EXTENSION IF EXISTS pgcrypto CASCADE"))
         await conn.run_sync(Base.metadata.drop_all)
 
     await async_db_engine.dispose()
