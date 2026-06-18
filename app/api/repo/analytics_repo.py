@@ -2,7 +2,7 @@ from uuid import UUID
 from typing import Any
 from sqlalchemy import select, func
 from sqlalchemy.dialects.postgresql import insert
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 
 
 from app.api.models.url import Url
@@ -115,11 +115,11 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
 
     async def get_total_clicks_per_url(self, user_id: UUID, day: str):
         filter_mappings: dict = {
-            "today": Url.created_at >= datetime.now(timezone.utc) - timedelta(days=1),
-            "last seven days": Url.created_at
-            >= datetime.now(timezone.utc) - timedelta(days=7),
-            "last fourteen days": Url.created_at
-            >= datetime.now(timezone.utc) - timedelta(days=14),
+            "today": self.model.date == date.today(),
+            "last seven days": self.model.date
+            >= date.today() - timedelta(days=7),
+            "last fourteen days": self.model.date
+            >= date.today() - timedelta(days=14),
         }
         stmt = (
             select(Url.shortened_url, func.sum(self.model.clicks))
