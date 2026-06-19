@@ -28,10 +28,6 @@ from app.api.services.analytics_service import AnalyticsService
 # Auth bearer
 bearer = HTTPBearer(auto_error=False)
 
-# my lifespan function is correctly configured so why this error:
-
-# tests/test_auth.py::TestSignUpWithEmail::test_sign_up - AttributeError: 'State' object has no attribute 'redis'
-
 
 # ------------------- DB dependency ------------------------------ #
 

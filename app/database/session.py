@@ -43,7 +43,7 @@ redis_pool = ConnectionPool.from_url(
 
 """
 A redis client with:
-- a connection pool that maintains s set of live connections
+- a connection pool that maintains a set of live connections
 - retry mechanism with exponential backoff and jitters for randomness
 """
 
