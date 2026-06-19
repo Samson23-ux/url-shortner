@@ -130,7 +130,6 @@ ENV/
 
 # local env files
 *.env
-*.env.*
 
 # Egg metadata
 *.egg-info/
