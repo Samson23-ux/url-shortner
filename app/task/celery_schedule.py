@@ -10,10 +10,10 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute="*/3")
     },
 
-    # "flush_clicks": {
-    #     "task": "app.task.celery_task.flush_clicks",
-    #     "schedule": crontab(minute="*/3")
-    # },
+    "flush_clicks": {
+        "task": "app.task.celery_task.flush_clicks",
+        "schedule": crontab(minute="*/3")
+    },
 
     "delete_users": {
         "task": "app.task.celery_task.delete_deactivated_users",
