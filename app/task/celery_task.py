@@ -1,6 +1,6 @@
 import resend
 import secrets
-import asyncpg
+import psycopg2
 from uuid import UUID, uuid4
 from resend.exceptions import ResendError
 from datetime import datetime, timezone, timedelta, date
@@ -167,10 +167,9 @@ class BaseTaskWithFailure(celery_app.Task):
     # errors to retry for
     autoretry_for = (
         TransientError,
-        asyncpg.CannotConnectNowError,
-        asyncpg.ConnectionFailureError,
-        asyncpg.TooManyConnectionsError,
-        asyncpg.ConnectionDoesNotExistError
+        psycopg2.OperationalError,
+        psycopg2.InterfaceError,
+        psycopg2.extensions.TransactionRollbackError,
     )
 
     # maximum retry value
