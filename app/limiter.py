@@ -15,4 +15,8 @@ def get_test_id(request: Request):
     return get_remote_address
 
 
-limiter = Limiter(key_func=get_test_id, default_limits=["5/minute"], storage_uri=get_settings().REDIS_URL)
+limiter = Limiter(
+    key_func=get_test_id,
+    default_limits=["50/minute"],
+    storage_uri=get_settings().REDIS_URL,
+)
