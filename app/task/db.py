@@ -1,6 +1,5 @@
 from redis import Redis
 from redis.retry import Retry
-from sqlalchemy.pool import NullPool
 from redis.connection import ConnectionPool
 from sqlalchemy import Engine, create_engine
 from redis.backoff import ExponentialBackoff
@@ -13,8 +12,11 @@ from app.core.config import get_settings
 
 db_engine: Engine = create_engine(
     url=get_settings().SYNC_DB_URL,
-    poolclass=NullPool,
-    connect_args=get_settings().DB_CONN_ARGS,
+    pool_size=10,
+    pool_timeout=10.0,
+    pool_pre_ping=True,
+    max_overflow=5,
+    connect_args={"options": "-c timezone=utc"},
 )
 
 

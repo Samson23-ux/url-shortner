@@ -1,4 +1,3 @@
-import uuid
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,12 +23,6 @@ class Settings(BaseSettings):
 
     # sync db
     SYNC_DB_URL: str
-
-    DB_CONN_ARGS: dict = {
-        "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
-        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
-    }
 
     # test db
     ASYNC_TEST_DB_URL: str
