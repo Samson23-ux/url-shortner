@@ -1,4 +1,3 @@
-import uuid
 from redis.retry import Retry
 from redis.asyncio import Redis
 from sqlalchemy.pool import NullPool
@@ -17,15 +16,10 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import get_settings
 
-connect_args = {
-    "statement_cache_size": 0,
-    "prepared_statement_cache_size": 0,
-    "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
-}
 
 async_engine: AsyncEngine = create_async_engine(
     url=get_settings().ASYNC_DB_URL,
-    connect_args=connect_args,
+    connect_args=get_settings().DB_CONN_ARGS,
     poolclass=NullPool
 )
 

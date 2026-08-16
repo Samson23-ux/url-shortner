@@ -1,3 +1,4 @@
+import uuid
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,7 +8,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_encoding="utf-8",
         extra="allow",
-        case_sensitive=False
+        case_sensitive=False,
     )
 
     # environment
@@ -23,6 +24,12 @@ class Settings(BaseSettings):
 
     # sync db
     SYNC_DB_URL: str
+
+    DB_CONN_ARGS: dict = {
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+    }
 
     # test db
     ASYNC_TEST_DB_URL: str
@@ -63,6 +70,7 @@ class Settings(BaseSettings):
 
     # otp
     OTP_EXPIRE_TIME: int
+
 
 @lru_cache(maxsize=1)
 def get_settings():
