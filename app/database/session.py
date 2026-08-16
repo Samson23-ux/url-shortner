@@ -1,5 +1,7 @@
+import uuid
 from redis.retry import Retry
 from redis.asyncio import Redis
+from sqlalchemy.pool import NullPool
 from collections.abc import AsyncGenerator
 from redis.backoff import ExponentialBackoff
 from redis.asyncio.connection import ConnectionPool
@@ -15,13 +17,16 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import get_settings
 
+connect_args = {
+    "statement_cache_size": 0,
+    "prepared_statement_cache_size": 0,
+    "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4()}__",
+}
+
 async_engine: AsyncEngine = create_async_engine(
     url=get_settings().ASYNC_DB_URL,
-    connect_args={"server_settings": {"timezone": "utc"}, "statement_cache_size": 0},
-    pool_size=10,
-    max_overflow=5,
-    pool_timeout=10.0,
-    pool_pre_ping=True,
+    connect_args=connect_args,
+    poolclass=NullPool
 )
 
 async_session = async_sessionmaker(
