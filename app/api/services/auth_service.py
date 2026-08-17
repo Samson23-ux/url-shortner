@@ -84,7 +84,7 @@ class AuthService:
         user_type: str = refresh_token_db["user_type"]
 
         try:
-            await self._redis_repo.delete_refresh_token(key)
+            await self._redis_repo.delete_key(key)
         except Exception as e:
             sentry_sdk.capture_exception(e)
             sentry_logger.error("Error occurred while deleting refresh token from redis")

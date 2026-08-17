@@ -29,8 +29,15 @@ class RedisRepository:
         await self._async_redis.incr(key)
         await self._async_redis.expire(key, ttl)
 
-    async def delete_refresh_token(self, key: str):
+    async def delete_key(self, key: str):
         await self._async_redis.delete(key)
+
+    async def cache_url(self, key: str, value: dict, ttl: int):
+        await self._async_redis.hset(key, mapping=value)
+        await self._async_redis.expire(key, ttl)
+
+    async def get_cached_url(self, key: str) -> dict:
+        return await self._async_redis.hgetall(key)
 
     async def delete_filter_value(self, key: str, value: str):
         await self._async_redis.cf().delete(key, value)

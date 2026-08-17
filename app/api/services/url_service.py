@@ -190,27 +190,52 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
+        cache_key: str = f"url:{slug}"
+
         try:
-            url_db: tuple = await self._url_repo.get_url(
-                slug,
-                Url.id,
-                Url.original_url,
-                Url.shortened_url,
-                Url.expire_at,
-            )
+            cached_url: dict = await self._redis_repo.get_cached_url(cache_key)
 
-            if not url_db:
-                sentry_logger.error(
-                    "No url found with the slug {slug} for user {email}",
-                    slug=slug,
-                    email=user_email,
+            if cached_url:
+                url_id: str = cached_url["id"]
+                original_url: str = cached_url["original_url"]
+                shortened_url: str = cached_url["shortened_url"]
+                expire_at: datetime = datetime.fromisoformat(cached_url["expire_at"])
+            else:
+                url_db: tuple = await self._url_repo.get_url(
+                    slug,
+                    Url.id,
+                    Url.original_url,
+                    Url.shortened_url,
+                    Url.expire_at,
                 )
-                raise UrlNotFoundError(slug=slug)
 
-            url_id, original_url, shortened_url, expire_at = url_db
+                if not url_db:
+                    sentry_logger.error(
+                        "No url found with the slug {slug} for user {email}",
+                        slug=slug,
+                        email=user_email,
+                    )
+                    raise UrlNotFoundError(slug=slug)
+
+                url_id, original_url, shortened_url, expire_at = url_db
 
             if expire_at <= datetime.now(timezone.utc):
                 raise UrlExpiredError(url=shortened_url)
+
+            if not cached_url:
+                cache_ttl: int = int(
+                    (expire_at - datetime.now(timezone.utc)).total_seconds()
+                )
+                await self._redis_repo.cache_url(
+                    cache_key,
+                    {
+                        "id": str(url_id),
+                        "original_url": original_url,
+                        "shortened_url": shortened_url,
+                        "expire_at": expire_at.isoformat(),
+                    },
+                    cache_ttl,
+                )
 
             # use redis counter to track clicks per day
             ttl: int = 60 * 60 * 48
@@ -307,6 +332,7 @@ class UrlService:
 
             await self._redis_repo.delete_filter_value(filter_key, old_url)
             await self._redis_repo.add_to_filter(filter_key, new_url)
+            await self._redis_repo.delete_key(f"url:{slug}")
 
             self._url_repo.add(model=url_db)
             await self._url_repo.commit()
@@ -352,6 +378,7 @@ class UrlService:
             filter_key: str = f"users:{user_email}:url"
 
             await self._redis_repo.delete_filter_value(filter_key, original_url)
+            await self._redis_repo.delete_key(f"url:{slug}")
             await self._url_repo.delete(url_db)
             await self._url_repo.commit()
 
