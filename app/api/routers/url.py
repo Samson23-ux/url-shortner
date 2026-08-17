@@ -47,8 +47,14 @@ async def redirect_to_url(
     url_service: UrlServiceDep,
     curr_user: CurrentActiveUser,
 ):
-    url: str = await url_service.redirect_to_url(curr_user, slug)
-    return RedirectResponse(url, status_code=302)
+    url: str
+    cache_hit: bool
+    url, cache_hit = await url_service.redirect_to_url(curr_user, slug)
+    return RedirectResponse(
+        url,
+        status_code=302,
+        headers={"X-Cache": "HIT" if cache_hit else "MISS"},
+    )
 
 
 @router.get(

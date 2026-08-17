@@ -184,7 +184,7 @@ class UrlService:
             )
             raise ServerError() from e
 
-    async def redirect_to_url(self, curr_user: User, slug: str) -> str:
+    async def redirect_to_url(self, curr_user: User, slug: str) -> tuple[str, bool]:
         if curr_user.type == "email":
             user_email: str = curr_user.email
         else:
@@ -194,6 +194,7 @@ class UrlService:
 
         try:
             cached_url: dict = await self._redis_repo.get_cached_url(cache_key)
+            cache_hit: bool = bool(cached_url)
 
             if cached_url:
                 url_id: str = cached_url["id"]
@@ -247,7 +248,7 @@ class UrlService:
                 url=original_url,
                 email=user_email,
             )
-            return original_url
+            return original_url, cache_hit
         except Exception as e:
             if isinstance(e, UrlNotFoundError):
                 raise UrlNotFoundError(slug=slug)

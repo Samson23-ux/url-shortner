@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # get shortened url
     URL_EXPIRE_TIME: int
-    SHORTEN_URL: str = "http://localhost:8000/api/v1/shorten"
+    SHORTEN_URL: str
 
     # rabbitmq
     API_BROKER: str

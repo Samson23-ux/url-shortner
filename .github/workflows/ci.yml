@@ -30,6 +30,7 @@ jobs:
 
     env:
       URL_EXPIRE_TIME: 7
+      SHORTEN_URL: http://localhost:8000/api/v1/shorten
       OTP_EXPIRE_TIME: 15
       ACCESS_TOKEN_EXPIRE_TIME: 15
       REFRESH_TOKEN_EXPIRE_TIME: 3
