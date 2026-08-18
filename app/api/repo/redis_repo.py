@@ -22,14 +22,6 @@ class RedisRepository:
         await self._async_redis.incr(key)
         await self._async_redis.expire(key, ttl)
 
-    async def increment_rate_limit(self, key: str, window_seconds: int) -> int:
-        """Fixed-window counter: TTL is set only on the first hit in a
-        window, so it doesn't keep sliding forward on every request."""
-        count: int = await self._async_redis.incr(key)
-        if count == 1:
-            await self._async_redis.expire(key, window_seconds)
-        return count
-
     async def delete_key(self, key: str):
         await self._async_redis.delete(key)
 

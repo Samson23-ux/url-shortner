@@ -1,7 +1,6 @@
 import time
 from typing import Annotated
 from redis.asyncio import Redis
-from slowapi.util import get_remote_address
 from fastapi import Depends, Request
 import sentry_sdk.logger as sentry_logger
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +17,7 @@ from app.api.repo.otp_repo import OtpRepository
 from app.api.repo.user_repo import UserRepository
 from app.api.repo.slug_repo import SlugRepository
 from app.api.repo.redis_repo import RedisRepository
-from app.core.exceptions import AuthenticationError, RateLimitError
+from app.core.exceptions import AuthenticationError
 from app.api.services.url_service import UrlService
 from app.api.services.auth_service import AuthService
 from app.api.services.user_service import UserService
