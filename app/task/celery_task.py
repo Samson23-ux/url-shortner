@@ -37,8 +37,10 @@ def get_email_service() -> EmailService:
 
 def get_user_service() -> UserService:
     session = get_db_session()
+    redis_client = get_redis_client()
     user_service: UserService = UserService(
-        user_repo=UserRepository(sync_session=session)
+        user_repo=UserRepository(sync_session=session),
+        redis_repo=RedisRepository(sync_redis=redis_client),
     )
     return user_service
 

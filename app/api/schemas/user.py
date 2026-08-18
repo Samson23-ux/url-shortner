@@ -39,3 +39,15 @@ class GoogleUserResponse(GoogleUser):
 
 class EmailUserResponse(EmailUser):
     id: UUID
+
+
+class CachedUser(BaseModel):
+    id: UUID
+    type: UserType
+    email: Optional[str] = None
+    google_email: Optional[str] = None
+    is_active: bool
+    is_verified: bool
+    is_deactivated: bool
+
+    model_config = ConfigDict(from_attributes=True)

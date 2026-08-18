@@ -42,6 +42,11 @@ class SlugUpdate(BaseModel):
         return self
 
 
+class SlugInDB(SlugBase):
+    id: UUID
+    user_id: UUID
+
+
 class SlugResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -30,7 +30,6 @@ A URL Shortner API that solves the inconvinience of memorizing long URLs by prov
 
 ## Technical Highlights ⚙️
 
-- Redis filter to check for url and slug existence. A redis filter is a space efficient probablistic data structure that guarantees inexistence of an item in a set but comes with some false positive as data size increases. Its usage is a trade-off between fast, space efficient checks and precision.
 - Redis Counter to track URL clicks. It provides atomicity and fast increment, avoiding the overheads of using a traditional database.
 - Background Workers to handle email processing and clicks flush for seamless user experience
 - Celery Flower to monitor failed tasks and retries

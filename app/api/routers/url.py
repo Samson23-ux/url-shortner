@@ -3,12 +3,14 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import RedirectResponse
 
 
+from app.limiter import limiter
 from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
     UrlServiceDep,
     CurrentActiveUser,
-    UnitOfWorkRepo,
+    CurrentActiveUserFast,
+    UnitOfWorkRepo
 )
 
 
@@ -29,7 +31,7 @@ async def shorten_url(
     uow: UnitOfWorkRepo,
     url_payload: ShortenUrl,
     url_service: UrlServiceDep,
-    curr_user: CurrentActiveUser,
+    curr_user: CurrentActiveUserFast,
 ):
     url: UrlResponse = await url_service.shorten_url(uow, curr_user, url_payload)
     return SuccessResponse(message="Shortened url created successfully", data=url)
@@ -45,7 +47,7 @@ async def redirect_to_url(
     request: Request,
     slug: str,
     url_service: UrlServiceDep,
-    curr_user: CurrentActiveUser,
+    curr_user: CurrentActiveUserFast,
 ):
     url: str
     cache_hit: bool

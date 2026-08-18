@@ -18,12 +18,16 @@ from app.api.models.base import Base
 class Url(Base):
     __tablename__ = "urls"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID, server_default=text("uuid_generate_v7()")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("users.id", name="urls_user_id_fk", ondelete="CASCADE")
     )
     slug_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("slugs.id", name="urls_slugs_id_fk", ondelete="CASCADE")
+        UUID,
+        ForeignKey("slugs.id", name="urls_slugs_id_fk", ondelete="CASCADE"),
+        unique=True,
     )
     original_url: Mapped[str] = mapped_column(String, unique=True)
     shortened_url: Mapped[str] = mapped_column(String, unique=True)

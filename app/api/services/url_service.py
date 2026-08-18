@@ -1,5 +1,5 @@
 import sentry_sdk
-from uuid import UUID
+from uuid import UUID, uuid7
 from sqlalchemy import Sequence
 import sentry_sdk.logger as sentry_logger
 from sqlalchemy.exc import IntegrityError
@@ -10,12 +10,13 @@ from app.api.models.url import Url
 from app.api.models.slug import Slug
 from app.api.models.user import User
 from app.core.config import get_settings
+from app.api.schemas.slug import SlugInDB
 from app.utils import generate_random_slug
 from app.api.repo.url_repo import UrlRepository
 from app.api.repo.slug_repo import SlugRepository
 from app.api.repo.redis_repo import RedisRepository
 from app.api.repo.unit_of_work import UnitOfWorkRepository
-from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
+from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse, UrlInDB
 from app.core.exceptions import (
     ServerError,
     SlugExistsError,
@@ -36,7 +37,7 @@ class UrlService:
         self._redis_repo = redis_repo
 
     async def _create_slug(
-        self, slug: str | None, filter_key: str, user_email: str, user_id: UUID
+        self, slug: str | None, user_email: str, user_id: UUID
     ) -> Slug:
         """
         Create a custom slug or use the received slug
@@ -44,34 +45,22 @@ class UrlService:
         and fallback to db if slug exists for confirmation
         """
         if slug:
-            slug_exists: bool = await self._redis_repo.filter_value_exists(
-                filter_key, slug
-            )
+            slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
-            if slug_exists:
-                slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
-
-                if slug_db:
-                    sentry_logger.error(
-                        "User {email} provided an existing slug. Slug: {slug}",
-                        email=user_email,
-                        slug=slug,
-                    )
-                    raise SlugExistsError(slug=slug)
+            if slug_db:
+                sentry_logger.error(
+                    "User {email} provided an existing slug. Slug: {slug}",
+                    email=user_email,
+                    slug=slug,
+                )
+                raise SlugExistsError(slug=slug)
         else:
             slug = generate_random_slug()
 
         for _ in range(self.MAX_RETRIES):
             try:
-                slug_db: Slug = Slug(user_id=user_id, custom_slug=slug)
-
-                self._slug_repo.add(model=slug_db)
-                await self._slug_repo.flush()
-                await self._slug_repo.refresh(slug_db)
-
-                if not await self._redis_repo.filter_exists(filter_key):
-                    await self._redis_repo.create_filter(filter_key)
-                await self._redis_repo.add_to_filter(filter_key, slug)
+                slug_db: SlugInDB = SlugInDB(id=uuid7(), user_id=user_id, custom_slug=slug)
+                await self._slug_repo.insert_slug(slug_db)
 
                 return slug_db
             except IntegrityError:
@@ -84,49 +73,42 @@ class UrlService:
     async def _create_url(
         self,
         url: str | None,
-        filter_key: str,
         slug_id: UUID,
         user_email: str,
         user_id: UUID,
         shortened_url: str,
     ) -> Url:
-        url_exists: bool = await self._redis_repo.filter_value_exists(filter_key, url)
+        url_db: UrlInDB = UrlInDB(
+            id=uuid7(),
+            user_id=user_id,
+            slug_id=slug_id,
+            original_url=url,
+            shortened_url=shortened_url,
+            expire_at=datetime.now(timezone.utc)
+            + timedelta(days=get_settings().URL_EXPIRE_TIME),
+        )
+        res = await self._url_repo.insert_url(url_db)
 
-        if url_exists:
-            url_db: Url = await self._url_repo.get_record(original_url=url)
-
-            if url_db.expire_at > datetime.now(timezone.utc):
+        # slug_id differs when the url already exists
+        # since only the original_url is updated on conflict
+        if slug_id != res.slug_id:
+            if res.expire_at > datetime.now(timezone.utc):
                 sentry_logger.error(
                     "User {email} provided an existing url. Url: {url}",
                     email=user_email,
                     url=url,
                 )
                 raise UrlExistsError(url=url)
-            else:
-                # update shortened url
-                url_db.slug_id = slug_id
-                url_db.shortened_url = shortened_url
-                url_db.expire_at = datetime.now(timezone.utc) + timedelta(
-                    days=get_settings().URL_EXPIRE_TIME
-                )
-                url_db.last_updated_at = datetime.now(timezone.utc)
-        else:
-            if not await self._redis_repo.filter_exists(filter_key):
-                await self._redis_repo.create_filter(filter_key)
-            await self._redis_repo.add_to_filter(filter_key, url)
 
-            url_db: Url = Url(
-                user_id=user_id,
-                original_url=url,
-                slug_id=slug_id,
-                shortened_url=shortened_url,
-                expire_at=datetime.now(timezone.utc)
-                + timedelta(days=get_settings().URL_EXPIRE_TIME),
+            url_db.id = res.id
+            url_db.slug_id = slug_id
+            url_db.shortened_url = shortened_url
+            url_db.last_updated_at = datetime.now(timezone.utc)
+            url_db.expire_at = datetime.now(timezone.utc) + timedelta(
+                days=get_settings().URL_EXPIRE_TIME
             )
 
-        self._url_repo.add(model=url_db)
-        await self._slug_repo.flush()
-        await self._slug_repo.refresh(url_db)
+            await self._url_repo.update_url(url_db)
 
         return url_db
 
@@ -148,18 +130,14 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
-        url_filter_key: str = f"users:{user_email}:url"
-        slug_filter_key: str = f"users:{user_email}:slug"
-
         try:
             slug: Slug = await self._create_slug(
-                payload_slug, slug_filter_key, user_email, curr_user.id
+                payload_slug, user_email, curr_user.id
             )
             shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug.custom_slug}"
 
-            url_db: Url = await self._create_url(
+            url_db: UrlInDB = await self._create_url(
                 payload_url,
-                url_filter_key,
                 slug.id,
                 user_email,
                 curr_user.id,
@@ -169,14 +147,15 @@ class UrlService:
             await uow.commit()
 
             sentry_logger.info("Url shortened for user {email}", email=user_email)
-            return UrlResponse.model_validate(url_db)
+            return UrlResponse(**url_db.model_dump())
         except Exception as e:
+            await uow.rollback()
+
             if isinstance(e, SlugExistsError):
                 raise SlugExistsError(slug=payload_slug)
             if isinstance(e, UrlExistsError):
                 raise UrlExistsError(url=payload_url)
 
-            await uow.rollback()
             sentry_sdk.capture_exception(e)
             sentry_logger.error(
                 "Error occured while creating a short url for user {email}",
@@ -325,14 +304,11 @@ class UrlService:
 
         try:
             old_url: str = url_db.original_url
-            filter_key: str = f"users:{user_email}:url"
             new_url: str = url_update.new_original_url
 
             url_db.original_url = new_url
             url_db.last_updated_at = datetime.now(timezone.utc)
 
-            await self._redis_repo.delete_filter_value(filter_key, old_url)
-            await self._redis_repo.add_to_filter(filter_key, new_url)
             await self._redis_repo.delete_key(f"url:{slug}")
 
             self._url_repo.add(model=url_db)
@@ -376,9 +352,7 @@ class UrlService:
 
         try:
             original_url: str = url_db.original_url
-            filter_key: str = f"users:{user_email}:url"
 
-            await self._redis_repo.delete_filter_value(filter_key, original_url)
             await self._redis_repo.delete_key(f"url:{slug}")
             await self._url_repo.delete(url_db)
             await self._url_repo.commit()

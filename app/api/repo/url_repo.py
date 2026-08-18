@@ -1,12 +1,13 @@
 from typing import Any
+from sqlalchemy import select, update
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 
 from app.api.models.url import Url
 from app.api.models.slug import Slug
-from app.api.schemas.url import UrlBase
 from app.api.repo.base import BaseRepository
+from app.api.schemas.url import UrlBase, UrlInDB
 
 
 class UrlRepository(BaseRepository[UrlBase, Url]):
@@ -57,3 +58,20 @@ class UrlRepository(BaseRepository[UrlBase, Url]):
 
         res = await self._async_session.execute(stmt)
         return res.first()
+
+    async def insert_url(self, url: UrlInDB) -> Url:
+        insert_stmt = insert(self.model).values(**url.model_dump())
+        insert_stmt = insert_stmt.on_conflict_do_update(
+            index_elements=["original_url"],
+            set_={"original_url": insert_stmt.excluded.original_url},
+        ).returning(self.model)
+        res = await self._async_session.execute(insert_stmt)
+        return res.scalar()
+
+    async def update_url(self, url: UrlInDB):
+        stmt = (
+            update(self.model)
+            .where(self.model.id == url.id)
+            .values(url.model_dump(exclude={"id"}))
+        )
+        await self._async_session.execute(stmt)

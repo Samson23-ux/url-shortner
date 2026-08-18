@@ -19,8 +19,8 @@ from app.core.config import get_settings
 async_engine: AsyncEngine = create_async_engine(
     url=get_settings().ASYNC_DB_URL,
     connect_args={"server_settings": {"timezone": "utc"}, "statement_cache_size": 0},
-    pool_size=10,
-    max_overflow=5,
+    pool_size=12,
+    max_overflow=3,
     pool_timeout=10.0,
     pool_pre_ping=True,
 )
@@ -36,7 +36,7 @@ async_session = async_sessionmaker(
 redis_pool = ConnectionPool.from_url(
     get_settings().REDIS_URL,
     decode_responses=True,
-    max_connections=50,
+    max_connections=100,
     retry=Retry(ExponentialBackoff(cap=1.0, base=0.1), retries=5),
     retry_on_error=[ConnectionError, TimeoutError],
     retry_on_timeout=True,

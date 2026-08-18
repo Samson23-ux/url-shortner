@@ -1,9 +1,10 @@
 from typing import Any
+from sqlalchemy import insert
 
 
 from app.api.models.slug import Slug
-from app.api.schemas.slug import SlugBase
 from app.api.repo.base import BaseRepository
+from app.api.schemas.slug import SlugBase, SlugInDB
 
 
 class SlugRepository(BaseRepository[SlugBase, Slug]):
@@ -23,3 +24,7 @@ class SlugRepository(BaseRepository[SlugBase, Slug]):
     def _get_sort_fields(self, sort: str) -> list[Any]:
         sortable_fields: dict = {"created_at": self.model.created_at}
         return [sortable_fields.get(sort, self.model.created_at)]
+
+    async def insert_slug(self, slug: SlugInDB) -> Slug:
+        insert_stmt = insert(self.model).values(**slug.model_dump())
+        await self._async_session.execute(insert_stmt)

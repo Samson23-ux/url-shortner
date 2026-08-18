@@ -30,20 +30,15 @@ class SlugService:
             user_email: str = curr_user.google_email
 
         slug: str = slug_payload.custom_slug
-        filter_key: str = f"users:{user_email}:slug"
+        slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
-        slug_exists: bool = await self._redis_repo.filter_value_exists(filter_key, slug)
-
-        if slug_exists:
-            slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
-
-            if slug_db:
-                sentry_logger.error(
-                    "User {email} provided an existing slug. Slug: {slug}",
-                    email=user_email,
-                    slug=slug,
-                )
-                raise SlugExistsError(slug=slug)
+        if slug_db:
+            sentry_logger.error(
+                "User {email} provided an existing slug. Slug: {slug}",
+                email=user_email,
+                slug=slug,
+            )
+            raise SlugExistsError(slug=slug)
 
         try:
             slug_db: Slug = Slug(user_id=curr_user.id, custom_slug=slug)
@@ -51,10 +46,6 @@ class SlugService:
             self._slug_repo.add(model=slug_db)
             await self._slug_repo.commit()
             await self._slug_repo.refresh(slug_db)
-
-            if not self._redis_repo.filter_exists(filter_key):
-                await self._redis_repo.create_filter(filter_key)
-            await self._redis_repo.add_to_filter(filter_key, slug)
 
             sentry_logger.info("Slug created for user {email}", email=user_email)
 
@@ -161,13 +152,9 @@ class SlugService:
 
         try:
             old_slug: str = slug_db.custom_slug
-            filter_key: str = f"users:{user_email}:slug"
             new_slug: str = slug_update.new_custom_slug
 
             slug_db.custom_slug = new_slug
-
-            await self._redis_repo.delete_filter_value(filter_key, old_slug)
-            await self._redis_repo.add_to_filter(filter_key, new_slug)
 
             self._slug_repo.add(model=slug_db)
             await self._slug_repo.commit()
@@ -209,9 +196,6 @@ class SlugService:
 
         try:
             custom_slug: str = slug_db.custom_slug
-            filter_key: str = f"users:{user_email}:slug"
-
-            await self._redis_repo.delete_filter_value(filter_key, custom_slug)
             await self._slug_repo.delete(slug_db)
             await self._slug_repo.commit()
 

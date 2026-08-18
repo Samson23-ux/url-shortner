@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import Optional
-from datetime import datetime
 from typing_extensions import Self
+from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -34,6 +34,16 @@ class UrlUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     new_original_url: str
+
+
+class UrlInDB(UrlBase):
+    id: UUID
+    user_id: UUID
+    slug_id: UUID
+    shortened_url: str
+    expire_at: datetime
+    last_updated_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class UrlResponse(BaseModel):

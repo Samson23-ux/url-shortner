@@ -7,20 +7,13 @@ class RedisRepository:
         self._sync_redis = sync_redis
         self._async_redis = async_redis
 
-    async def filter_exists(self, key) -> int:
-        return await self._async_redis.exists(key)
-
-    async def create_filter(self, key: str, capacity: int = 200, expansion: int = 2):
-        await self._async_redis.cf().reserve(key, capacity, expansion=expansion)
-
-    async def add_to_filter(self, key: str, value: str):
-        await self._async_redis.cf().add(key, value)
-
-    async def filter_value_exists(self, key: str, value: str) -> bool:
-        return await self._async_redis.cf().exists(key, value)
+    async def _set_hash(self, key: str, value: dict, ttl: int | None = None):
+        await self._async_redis.hset(key, mapping=value)
+        if ttl is not None:
+            await self._async_redis.expire(key, ttl)
 
     async def add_refresh_token(self, key: str, value: str):
-        await self._async_redis.hset(key, mapping=value)
+        await self._set_hash(key, value)
 
     async def get_refresh_token(self, key: str) -> dict:
         return await self._async_redis.hgetall(key)
@@ -29,14 +22,27 @@ class RedisRepository:
         await self._async_redis.incr(key)
         await self._async_redis.expire(key, ttl)
 
+    async def increment_rate_limit(self, key: str, window_seconds: int) -> int:
+        """Fixed-window counter: TTL is set only on the first hit in a
+        window, so it doesn't keep sliding forward on every request."""
+        count: int = await self._async_redis.incr(key)
+        if count == 1:
+            await self._async_redis.expire(key, window_seconds)
+        return count
+
     async def delete_key(self, key: str):
         await self._async_redis.delete(key)
 
     async def cache_url(self, key: str, value: dict, ttl: int):
-        await self._async_redis.hset(key, mapping=value)
-        await self._async_redis.expire(key, ttl)
+        await self._set_hash(key, value, ttl)
 
     async def get_cached_url(self, key: str) -> dict:
+        return await self._async_redis.hgetall(key)
+
+    async def cache_user(self, key: str, value: dict, ttl: int):
+        await self._set_hash(key, value, ttl)
+
+    async def get_cached_user(self, key: str) -> dict:
         return await self._async_redis.hgetall(key)
 
     async def delete_filter_value(self, key: str, value: str):

@@ -17,6 +17,6 @@ def get_test_id(request: Request):
 
 limiter = Limiter(
     key_func=get_test_id,
-    default_limits=["50/minute"],
+    default_limits=["100/second"],
     storage_uri=get_settings().REDIS_URL,
 )
