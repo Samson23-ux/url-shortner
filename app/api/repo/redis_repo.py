@@ -8,9 +8,14 @@ class RedisRepository:
         self._async_redis = async_redis
 
     async def _set_hash(self, key: str, value: dict, ttl: int | None = None):
-        await self._async_redis.hset(key, mapping=value)
-        if ttl is not None:
-            await self._async_redis.expire(key, ttl)
+        if ttl is None:
+            await self._async_redis.hset(key, mapping=value)
+            return
+
+        async with self._async_redis.pipeline() as pipe:
+            pipe.hset(key, mapping=value)
+            pipe.expire(key, ttl)
+            await pipe.execute()
 
     async def add_refresh_token(self, key: str, value: str):
         await self._set_hash(key, value)
@@ -19,8 +24,10 @@ class RedisRepository:
         return await self._async_redis.hgetall(key)
 
     async def increment_clicks(self, key: str, ttl: int):
-        await self._async_redis.incr(key)
-        await self._async_redis.expire(key, ttl)
+        async with self._async_redis.pipeline() as pipe:
+            pipe.incr(key)
+            pipe.expire(key, ttl)
+            await pipe.execute()
 
     async def delete_key(self, key: str):
         await self._async_redis.delete(key)
