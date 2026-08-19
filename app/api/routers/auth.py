@@ -3,8 +3,8 @@ from fastapi import APIRouter, Request, Response, Depends
 
 
 from app.core.security import oauth
-from app.limiter import auth_rate_limit
 from app.core.config import get_settings
+from app.limiter import _limiter_handler
 from app.api.schemas.response import SuccessResponse
 from app.api.schemas.user import GoogleUserResponse, EmailUserResponse
 from app.dependencies import (
@@ -24,11 +24,13 @@ from app.api.schemas.auth import (
     PasswordReset,
     LogoutResponse,
     DeactivateResponse,
-    ReactivateUser
+    ReactivateUser,
 )
 
-
 router = APIRouter()
+
+
+LIMIT_KEY = "limiter:auth"
 
 
 @router.post(
@@ -39,7 +41,11 @@ router = APIRouter()
         "Sign up with email and password."
         "A verification code is sent to the user's email on completion"
     ),
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def sign_up_with_email(
     request: Request,
@@ -61,7 +67,11 @@ async def sign_up_with_email(
     status_code=302,
     response_class=RedirectResponse,
     description="Sign in with Google account",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def sign_in_with_google(request: Request):
     redirect_uri = request.url_for("google_callback")
@@ -73,7 +83,11 @@ async def sign_in_with_google(request: Request):
     status_code=200,
     response_model=Token,
     description="Google redirect uri",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def google_callback(
     request: Request,
@@ -103,7 +117,11 @@ async def google_callback(
     status_code=200,
     response_model=SuccessResponse[EmailUserResponse],
     description="Verify account by submitting the received otp code",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def verify_account(
     request: Request,
@@ -121,7 +139,11 @@ async def verify_account(
     status_code=201,
     description="Resend verification code",
     response_model=SuccessResponse[OtpResendResponseV1],
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def resend_otp(
     request: Request,
@@ -140,7 +162,11 @@ async def resend_otp(
     status_code=201,
     description="Login with email and password",
     response_model=SuccessResponse[Token],
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def login(
     request: Request,
@@ -170,7 +196,11 @@ async def login(
     status_code=201,
     response_model=SuccessResponse[Token],
     description="Create new access token for user with a valid refresh token",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def create_new_token(
     request: Request,
@@ -199,7 +229,11 @@ async def create_new_token(
     status_code=200,
     description="Get current active user",
     response_model=SuccessResponse[EmailUserResponse | GoogleUserResponse],
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def get_current_user(
     request: Request,
@@ -217,7 +251,11 @@ async def get_current_user(
     status_code=200,
     description="Update current password",
     response_model=SuccessResponse[EmailUserResponse],
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def update_password(
     request: Request,
@@ -240,7 +278,11 @@ async def update_password(
         "A verification code is sent to the user's email before reset"
     ),
     response_model=SuccessResponse[EmailUserResponse],
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def reset_password(
     request: Request,
@@ -257,7 +299,11 @@ async def reset_password(
     status_code=201,
     response_model=SuccessResponse[LogoutResponse],
     description="Log out account",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def log_out(
     request: Request,
@@ -278,7 +324,11 @@ async def log_out(
         "Delete account temporarily."
         "Deactivated account are deleted permanently after 14 days"
     ),
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def deactivate_account(
     request: Request,
@@ -296,7 +346,11 @@ async def deactivate_account(
     status_code=200,
     response_model=SuccessResponse[EmailUserResponse],
     description="Reactivate account",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def reactivate_account(
     request: Request,
@@ -314,7 +368,11 @@ async def reactivate_account(
     "/auth",
     status_code=204,
     description="Delete account permanently",
-    dependencies=[Depends(auth_rate_limit)],
+    dependencies=[
+        Depends(
+            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+        )
+    ],
 )
 async def delete_account(
     request: Request,

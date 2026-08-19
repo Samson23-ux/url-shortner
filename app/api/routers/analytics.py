@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import APIRouter, Request, Query, Depends
 
 
-from app.limiter import read_rate_limit
+from app.limiter import _limiter_handler
 from app.api.schemas.response import SuccessResponse
 from app.api.schemas.analytics import AnalyticsResponse
 from app.dependencies import (
@@ -14,12 +14,15 @@ from app.dependencies import (
 router = APIRouter()
 
 
+LIMIT_KEY = "limiter:analytics"
+
+
 @router.get(
     "/analytics",
     status_code=200,
     description="Get account analytics",
     response_model=SuccessResponse[AnalyticsResponse],
-    dependencies=[Depends(read_rate_limit)],
+    dependencies=[Depends(_limiter_handler(key=LIMIT_KEY, limit=5, unit="minutes"))],
 )
 async def get_analytics(
     request: Request,

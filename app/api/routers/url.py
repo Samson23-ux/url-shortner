@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi import APIRouter, Request, Query, Depends
 
 
-from app.limiter import read_rate_limit, write_rate_limit
+from app.limiter import _limiter_handler
 from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
@@ -16,6 +16,10 @@ from app.dependencies import (
 router = APIRouter()
 
 
+READ_LIMIT_KEY = "limiter:read"
+WRITE_LIMIT_KEY = "limiter:write"
+
+
 @router.post(
     "/shorten",
     status_code=201,
@@ -24,7 +28,9 @@ router = APIRouter()
         "An optional unique custom slug can be provided based on preferences"
     ),
     response_model=SuccessResponse[UrlResponse],
-    dependencies=[Depends(write_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
+    ],
 )
 async def shorten_url(
     request: Request,
@@ -42,7 +48,9 @@ async def shorten_url(
     status_code=302,
     description="Redirects to the original url associated with the shortened url",
     response_class=RedirectResponse,
-    dependencies=[Depends(read_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+    ],
 )
 async def redirect_to_url(
     request: Request,
@@ -65,7 +73,9 @@ async def redirect_to_url(
     status_code=200,
     description="Get all shortened url",
     response_model=AllSuccessResponse[list[UrlResponse]],
-    dependencies=[Depends(read_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+    ],
 )
 async def get_all_url(
     request: Request,
@@ -89,7 +99,9 @@ async def get_all_url(
     status_code=200,
     description="Update the original url associated to a shortened url",
     response_model=SuccessResponse[UrlResponse],
-    dependencies=[Depends(write_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
+    ],
 )
 async def update_url(
     request: Request,
@@ -106,7 +118,9 @@ async def update_url(
     "/shorten/{slug}",
     status_code=204,
     description="Delete url record",
-    dependencies=[Depends(write_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
+    ],
 )
 async def delete_url(
     request: Request,

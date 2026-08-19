@@ -2,7 +2,7 @@ from typing import Annotated
 from fastapi import APIRouter, Request, Query, Depends
 
 
-from app.limiter import read_rate_limit, write_rate_limit
+from app.limiter import _limiter_handler
 from app.api.schemas.slug import SlugCreate, SlugUpdate, SlugResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
@@ -10,8 +10,11 @@ from app.dependencies import (
     CurrentActiveUser,
 )
 
-
 router = APIRouter()
+
+
+READ_LIMIT_KEY = "limiter:read"
+WRITE_LIMIT_KEY = "limiter:write"
 
 
 @router.post(
@@ -19,7 +22,9 @@ router = APIRouter()
     status_code=201,
     description="Create a custom slug",
     response_model=SuccessResponse[SlugResponse],
-    dependencies=[Depends(write_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
+    ],
 )
 async def create_slug(
     request: Request,
@@ -36,15 +41,15 @@ async def create_slug(
     status_code=200,
     description="Get all craeted slug",
     response_model=AllSuccessResponse[list[SlugResponse]],
-    dependencies=[Depends(read_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+    ],
 )
 async def get_all_slug(
     request: Request,
     slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
-    sort: Annotated[
-        str, Query(description="Sort by created_at")
-    ] = None,
+    sort: Annotated[str, Query(description="Sort by created_at")] = None,
     order: Annotated[str, Query(description="Order in asc or desc")] = "asc",
     cursor: Annotated[str, Query()] = None,
     limit: Annotated[int, Query()] = 10,
@@ -52,7 +57,9 @@ async def get_all_slug(
     slugs, cursor = await slug_service.get_all_slugs(
         curr_user, sort, order, cursor, limit
     )
-    return AllSuccessResponse(message="Slugs retrieved successfully", data=slugs, cursor=cursor)
+    return AllSuccessResponse(
+        message="Slugs retrieved successfully", data=slugs, cursor=cursor
+    )
 
 
 @router.get(
@@ -60,7 +67,9 @@ async def get_all_slug(
     status_code=200,
     description="Get created slug",
     response_model=SuccessResponse[SlugResponse],
-    dependencies=[Depends(read_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+    ],
 )
 async def get_slug(
     request: Request,
@@ -77,7 +86,9 @@ async def get_slug(
     status_code=200,
     description="Update existing slug",
     response_model=SuccessResponse[SlugResponse],
-    dependencies=[Depends(write_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
+    ],
 )
 async def update_slug(
     request: Request,
@@ -94,7 +105,9 @@ async def update_slug(
     "/slugs/{slug}",
     status_code=204,
     description="Delete existing slug",
-    dependencies=[Depends(write_rate_limit)],
+    dependencies=[
+        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
+    ],
 )
 async def delete_slug(
     request: Request,

@@ -21,34 +21,22 @@ async def _test_aware_identifier(request: Request):
 
 # Populated by init_limiters() from the app's lifespan, since building a
 # RedisBucket awaits a Lua SCRIPT LOAD — can't happen at plain import time.
-auth_limiter: Limiter | None = None
-read_limiter: Limiter | None = None
-write_limiter: Limiter | None = None
+limiter: Limiter | None = None
+
+
+DEFAULT_LIMIT = 10
+DEFAULT_DURATION = Duration.MINUTE
 
 
 async def init_limiters(redis: Redis):
-    global auth_limiter, read_limiter, write_limiter
+    global limiter
 
-    auth_bucket = await RedisBucket.init(
-        rates=[Rate(limit=10, interval=Duration.MINUTE * 15)],
+    limit_bucket = await RedisBucket.init(
+        rates=[Rate(limit=DEFAULT_LIMIT, interval=DEFAULT_DURATION)],
         redis=redis,
-        bucket_key="limiter:auth",
+        bucket_key="limiter",
     )
-    auth_limiter = Limiter(auth_bucket)
-
-    read_bucket = await RedisBucket.init(
-        rates=[Rate(limit=10, interval=Duration.MINUTE)],
-        redis=redis,
-        bucket_key="limiter:read",
-    )
-    read_limiter = Limiter(read_bucket)
-
-    write_bucket = await RedisBucket.init(
-        rates=[Rate(limit=4, interval=Duration.MINUTE)],
-        redis=redis,
-        bucket_key="limiter:write",
-    )
-    write_limiter = Limiter(write_bucket)
+    limiter = Limiter(limit_bucket)
 
 
 class _LazyRateLimiter:
@@ -69,10 +57,25 @@ class _LazyRateLimiter:
         return await rate_limiter(request, response)
 
 
-# 10/minute — applied to read routes.
-read_rate_limit = _LazyRateLimiter(lambda: read_limiter)
-# 4/minute — applied to write routes.
-write_rate_limit = _LazyRateLimiter(lambda: write_limiter)
-# 3/5minute — applied to auth.py's sensitive routes (login, signup, etc.).
-auth_rate_limit = _LazyRateLimiter(lambda: auth_limiter)
+def _limiter_handler(
+    key: str, limit: int = None, unit: str = None, multiplier: int = 1
+):
+    async def rate_limiter(request: Request, response: Response):
+        duration_mapping: dict[str, Duration] = {
+            "seconds": Duration.SECOND,
+            "minutes": Duration.MINUTE,
+            "hour": Duration.HOUR,
+        }
+        redis_bucket: RedisBucket = limiter.bucket_factory.bucket
 
+        redis_bucket.bucket_key = key
+
+        if limit:
+            redis_bucket.rates[0].limit = limit
+        if unit:
+            redis_bucket.rates[0].interval = duration_mapping.get(unit) * multiplier
+
+        rate_limit = _LazyRateLimiter(lambda: limiter)
+        return await rate_limit(request, response)
+
+    return rate_limiter
