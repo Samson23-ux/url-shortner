@@ -1,22 +1,78 @@
 from uuid import uuid4
-from slowapi import Limiter
-from fastapi import Request
-from slowapi.util import get_remote_address
+from redis.asyncio import Redis
+from fastapi import Request, Response
+from pyrate_limiter.limiter import Limiter
+from fastapi_limiter.depends import RateLimiter
+from pyrate_limiter.abstracts import Rate, Duration
+from fastapi_limiter.callback import default_callback
+from fastapi_limiter.identifier import default_identifier
+from pyrate_limiter.buckets.redis_bucket import RedisBucket
 
 
-from app.core.config import get_settings
+async def _test_aware_identifier(request: Request):
+    """Same env: test bypass slowapi used, minus the bug where the old
+    get_test_id returned the get_remote_address function itself instead
+    of calling it — every non-test client shared one bucket as a result.
+    default_identifier already keys by client IP + path."""
+    if request.headers.get("env") == "test":
+        return f"test:{uuid4()}"
+    return await default_identifier(request)
 
 
-def get_test_id(request: Request):
-    env: str = request.headers.get("env")
+# Populated by init_limiters() from the app's lifespan, since building a
+# RedisBucket awaits a Lua SCRIPT LOAD — can't happen at plain import time.
+auth_limiter: Limiter | None = None
+read_limiter: Limiter | None = None
+write_limiter: Limiter | None = None
 
-    if env == "test":
-        return uuid4()
-    return get_remote_address
+
+async def init_limiters(redis: Redis):
+    global auth_limiter, read_limiter, write_limiter
+
+    auth_bucket = await RedisBucket.init(
+        rates=[Rate(limit=10, interval=Duration.MINUTE * 15)],
+        redis=redis,
+        bucket_key="limiter:auth",
+    )
+    auth_limiter = Limiter(auth_bucket)
+
+    read_bucket = await RedisBucket.init(
+        rates=[Rate(limit=10, interval=Duration.MINUTE)],
+        redis=redis,
+        bucket_key="limiter:read",
+    )
+    read_limiter = Limiter(read_bucket)
+
+    write_bucket = await RedisBucket.init(
+        rates=[Rate(limit=4, interval=Duration.MINUTE)],
+        redis=redis,
+        bucket_key="limiter:write",
+    )
+    write_limiter = Limiter(write_bucket)
 
 
-limiter = Limiter(
-    key_func=get_test_id,
-    default_limits=["100/second"],
-    storage_uri=get_settings().REDIS_URL,
-)
+class _LazyRateLimiter:
+    """Route decorators need a concrete dependency at import time, but the
+    real Limiter doesn't exist until init_limiters() runs inside the app's
+    async lifespan (before any request is served). This defers building
+    the actual RateLimiter to request time, by which point it's ready."""
+
+    def __init__(self, limiter):
+        self._limiter = limiter
+
+    async def __call__(self, request: Request, response: Response):
+        rate_limiter = RateLimiter(
+            limiter=self._limiter(),
+            identifier=_test_aware_identifier,
+            callback=default_callback,
+        )
+        return await rate_limiter(request, response)
+
+
+# 10/minute — applied to read routes.
+read_rate_limit = _LazyRateLimiter(lambda: read_limiter)
+# 4/minute — applied to write routes.
+write_rate_limit = _LazyRateLimiter(lambda: write_limiter)
+# 3/5minute — applied to auth.py's sensitive routes (login, signup, etc.).
+auth_rate_limit = _LazyRateLimiter(lambda: auth_limiter)
+

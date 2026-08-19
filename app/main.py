@@ -1,18 +1,14 @@
 import sentry_sdk
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-from slowapi import _rate_limit_exceeded_handler
 from starlette.middleware.sessions import SessionMiddleware
 
 
-from app.limiter import limiter
+from app.limiter import init_limiters
 from app.api.routers import router
 from app.core.config import get_settings
 from app.database.session import redis_client
 from app.core.exception_handlers import ExceptionHandler
-
 
 settings = get_settings()
 
@@ -23,23 +19,23 @@ sentry_sdk.init(
     send_default_pii=True,
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
-    profile_lifecycle="trace"
+    profile_lifecycle="trace",
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.redis = redis_client
+    await init_limiters(redis_client)
     yield
     await app.state.redis.aclose()
 
 
-app = FastAPI(title=settings.API_TITLE, version=settings.API_VERSION, lifespan=lifespan)
-
-
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+app = FastAPI(
+    title=settings.API_TITLE,
+    version=settings.API_VERSION,
+    lifespan=lifespan,
+)
 
 
 app.include_router(router.router)

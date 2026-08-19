@@ -1,7 +1,8 @@
 from typing import Annotated
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Request, Query, Depends
 
 
+from app.limiter import read_rate_limit
 from app.api.schemas.response import SuccessResponse
 from app.api.schemas.analytics import AnalyticsResponse
 from app.dependencies import (
@@ -18,6 +19,7 @@ router = APIRouter()
     status_code=200,
     description="Get account analytics",
     response_model=SuccessResponse[AnalyticsResponse],
+    dependencies=[Depends(read_rate_limit)],
 )
 async def get_analytics(
     request: Request,

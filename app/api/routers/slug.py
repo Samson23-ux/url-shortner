@@ -1,7 +1,8 @@
 from typing import Annotated
-from fastapi import APIRouter, Request, Query
+from fastapi import APIRouter, Request, Query, Depends
 
 
+from app.limiter import read_rate_limit, write_rate_limit
 from app.api.schemas.slug import SlugCreate, SlugUpdate, SlugResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
@@ -17,7 +18,8 @@ router = APIRouter()
     "/slugs",
     status_code=201,
     description="Create a custom slug",
-    response_model=SuccessResponse[SlugResponse]
+    response_model=SuccessResponse[SlugResponse],
+    dependencies=[Depends(write_rate_limit)],
 )
 async def create_slug(
     request: Request,
@@ -33,7 +35,8 @@ async def create_slug(
     "/slugs",
     status_code=200,
     description="Get all craeted slug",
-    response_model=AllSuccessResponse[list[SlugResponse]]
+    response_model=AllSuccessResponse[list[SlugResponse]],
+    dependencies=[Depends(read_rate_limit)],
 )
 async def get_all_slug(
     request: Request,
@@ -56,7 +59,8 @@ async def get_all_slug(
     "/slugs/{slug}",
     status_code=200,
     description="Get created slug",
-    response_model=SuccessResponse[SlugResponse]
+    response_model=SuccessResponse[SlugResponse],
+    dependencies=[Depends(read_rate_limit)],
 )
 async def get_slug(
     request: Request,
@@ -72,7 +76,8 @@ async def get_slug(
     "/slugs/{slug}",
     status_code=200,
     description="Update existing slug",
-    response_model=SuccessResponse[SlugResponse]
+    response_model=SuccessResponse[SlugResponse],
+    dependencies=[Depends(write_rate_limit)],
 )
 async def update_slug(
     request: Request,
@@ -89,6 +94,7 @@ async def update_slug(
     "/slugs/{slug}",
     status_code=204,
     description="Delete existing slug",
+    dependencies=[Depends(write_rate_limit)],
 )
 async def delete_slug(
     request: Request,

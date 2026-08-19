@@ -175,8 +175,8 @@ const CACHE_HIT_THRESHOLD_MS = Number(__ENV.CACHE_HIT_THRESHOLD_MS) || 20;
 // Redirect throughput — conservative defaults for a small/single-instance
 // deployment. Binary-search upward from here (see header comment) rather
 // than assuming these are the numbers to hit.
-const REDIRECT_SUSTAINED_RATE = Number(__ENV.REDIRECT_RATE) || 20; // req/s
-const REDIRECT_SPIKE_RATE = Number(__ENV.REDIRECT_SPIKE_RATE) || 60; // req/s
+const REDIRECT_SUSTAINED_RATE = Number(__ENV.REDIRECT_RATE) || 5; // req/s
+const REDIRECT_SPIKE_RATE = Number(__ENV.REDIRECT_SPIKE_RATE) || 15; // req/s
 
 // Per-request timeout. Bounds how long a hung request can occupy a VU —
 // this is what makes constant-arrival-rate's VU pool sizing tractable

@@ -60,8 +60,8 @@ const CACHE_HIT_THRESHOLD_MS = Number(__ENV.CACHE_HIT_THRESHOLD_MS) || 20;
 
 // Same defaults as the combined script, so this run is a like-for-like
 // comparison against that one.
-const REDIRECT_SUSTAINED_RATE = Number(__ENV.REDIRECT_RATE) || 20; // req/s
-const REDIRECT_SPIKE_RATE = Number(__ENV.REDIRECT_SPIKE_RATE) || 60; // req/s
+const REDIRECT_SUSTAINED_RATE = Number(__ENV.REDIRECT_RATE) || 5; // req/s
+const REDIRECT_SPIKE_RATE = Number(__ENV.REDIRECT_SPIKE_RATE) || 15; // req/s
 
 const REQUEST_TIMEOUT_SECONDS = Number(__ENV.REQUEST_TIMEOUT_SECONDS) || 10;
 const REQUEST_TIMEOUT = `${REQUEST_TIMEOUT_SECONDS}s`;

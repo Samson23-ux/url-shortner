@@ -1,10 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 
 from app.core.config import get_settings
 from app.api.routers import auth, url, slug, analytics
 
 router = APIRouter(prefix=get_settings().API_PREFIX)
+
 
 router.include_router(url.router, tags=["Url"])
 router.include_router(auth.router, tags=["Auth"])

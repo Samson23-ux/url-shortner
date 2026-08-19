@@ -11,6 +11,7 @@ dependencies = [
     "authlib>=1.7.2",
     "celery>=5.6.3",
     "coolname>=5.0.0",
+    "fastapi-limiter>=0.2.0",
     "fastapi[all]>=0.136.1",
     "flower>=2.0.1",
     "gevent>=26.5.0",

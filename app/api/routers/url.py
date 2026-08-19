@@ -1,18 +1,17 @@
 from typing import Annotated
-from fastapi import APIRouter, Request, Query
 from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Request, Query, Depends
 
 
-from app.limiter import limiter
+from app.limiter import read_rate_limit, write_rate_limit
 from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
     UrlServiceDep,
     CurrentActiveUser,
     CurrentActiveUserFast,
-    UnitOfWorkRepo
+    UnitOfWorkRepo,
 )
-
 
 router = APIRouter()
 
@@ -25,6 +24,7 @@ router = APIRouter()
         "An optional unique custom slug can be provided based on preferences"
     ),
     response_model=SuccessResponse[UrlResponse],
+    # dependencies=[Depends(write_rate_limit)],
 )
 async def shorten_url(
     request: Request,
@@ -42,6 +42,7 @@ async def shorten_url(
     status_code=302,
     description="Redirects to the original url associated with the shortened url",
     response_class=RedirectResponse,
+    # dependencies=[Depends(read_rate_limit)],
 )
 async def redirect_to_url(
     request: Request,
@@ -64,6 +65,7 @@ async def redirect_to_url(
     status_code=200,
     description="Get all shortened url",
     response_model=AllSuccessResponse[list[UrlResponse]],
+    dependencies=[Depends(read_rate_limit)],
 )
 async def get_all_url(
     request: Request,
@@ -76,10 +78,10 @@ async def get_all_url(
     cursor: Annotated[str, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
-    urls, cursor = await url_service.get_all_urls(
-        curr_user, sort, order, cursor, limit
+    urls, cursor = await url_service.get_all_urls(curr_user, sort, order, cursor, limit)
+    return AllSuccessResponse(
+        message="Urls retrieved successfully", data=urls, cursor=cursor
     )
-    return AllSuccessResponse(message="Urls retrieved successfully", data=urls, cursor=cursor)
 
 
 @router.patch(
@@ -87,6 +89,7 @@ async def get_all_url(
     status_code=200,
     description="Update the original url associated to a shortened url",
     response_model=SuccessResponse[UrlResponse],
+    dependencies=[Depends(write_rate_limit)],
 )
 async def update_url(
     request: Request,
@@ -100,7 +103,10 @@ async def update_url(
 
 
 @router.delete(
-    "/shorten/{slug}", status_code=204, description="Delete url record"
+    "/shorten/{slug}",
+    status_code=204,
+    description="Delete url record",
+    dependencies=[Depends(write_rate_limit)],
 )
 async def delete_url(
     request: Request,
