@@ -30,7 +30,7 @@ from app.api.schemas.auth import (
 router = APIRouter()
 
 
-LIMIT_KEY = "limiter:auth"
+AUTH_LIMIT_KEY = get_settings().AUTH_LIMIT_KEY
 
 
 @router.post(
@@ -43,7 +43,7 @@ LIMIT_KEY = "limiter:auth"
     ),
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -69,7 +69,7 @@ async def sign_up_with_email(
     description="Sign in with Google account",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -85,7 +85,7 @@ async def sign_in_with_google(request: Request):
     description="Google redirect uri",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -119,7 +119,7 @@ async def google_callback(
     description="Verify account by submitting the received otp code",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -141,7 +141,7 @@ async def verify_account(
     response_model=SuccessResponse[OtpResendResponseV1],
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -164,7 +164,7 @@ async def resend_otp(
     response_model=SuccessResponse[Token],
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -198,7 +198,7 @@ async def login(
     description="Create new access token for user with a valid refresh token",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -231,7 +231,7 @@ async def create_new_token(
     response_model=SuccessResponse[EmailUserResponse | GoogleUserResponse],
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -253,7 +253,7 @@ async def get_current_user(
     response_model=SuccessResponse[EmailUserResponse],
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -280,7 +280,7 @@ async def update_password(
     response_model=SuccessResponse[EmailUserResponse],
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -301,7 +301,7 @@ async def reset_password(
     description="Log out account",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -326,7 +326,7 @@ async def log_out(
     ),
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -348,7 +348,7 @@ async def deactivate_account(
     description="Reactivate account",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )
@@ -370,7 +370,7 @@ async def reactivate_account(
     description="Delete account permanently",
     dependencies=[
         Depends(
-            _limiter_handler(key=LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
+            _limiter_handler(key=AUTH_LIMIT_KEY, limit=10, unit="minutes", multiplier=15)
         )
     ],
 )

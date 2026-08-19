@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request, Query, Depends
 
 
 from app.limiter import _limiter_handler
+from app.core.config import get_settings
 from app.api.schemas.response import SuccessResponse
 from app.api.schemas.analytics import AnalyticsResponse
 from app.dependencies import (
@@ -10,11 +11,10 @@ from app.dependencies import (
     AnalyticsServiceDep,
 )
 
-
 router = APIRouter()
 
 
-LIMIT_KEY = "limiter:analytics"
+ANALYTICS_LIMIT_KEY = get_settings().ANALYTICS_LIMIT_KEY
 
 
 @router.get(
@@ -22,7 +22,9 @@ LIMIT_KEY = "limiter:analytics"
     status_code=200,
     description="Get account analytics",
     response_model=SuccessResponse[AnalyticsResponse],
-    dependencies=[Depends(_limiter_handler(key=LIMIT_KEY, limit=5, unit="minutes"))],
+    dependencies=[
+        Depends(_limiter_handler(key=ANALYTICS_LIMIT_KEY, limit=5, unit="minutes"))
+    ],
 )
 async def get_analytics(
     request: Request,

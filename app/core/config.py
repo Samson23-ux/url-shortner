@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     # otp
     OTP_EXPIRE_TIME: int
 
+    # rate limit keys
+    AUTH_LIMIT_KEY: str = "limiter:auth"
+    READ_LIMIT_KEY: str = "limiter:read"
+    WRITE_LIMIT_KEY: str = "limiter:write"
+    ANALYTICS_LIMIT_KEY: str = "limiter:analytics"
+
 
 @lru_cache(maxsize=1)
 def get_settings():

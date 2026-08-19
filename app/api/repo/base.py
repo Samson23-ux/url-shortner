@@ -108,11 +108,12 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
         has_more: bool = len(records) > limit
 
-        payload: dict = {
-            "created_at": records[:limit][-1].created_at.isoformat(),
-            "order": cursor_payload["order"] if cursor_payload else order,
-        }
-        next_cursor: str = await encode_cursor(payload)
+        if records:
+            payload: dict = {
+                "created_at": records[:limit][-1].created_at.isoformat(),
+                "order": cursor_payload["order"] if cursor_payload else order,
+            }
+            next_cursor: str = await encode_cursor(payload)
 
         return {"data": records[:limit], "cursor": next_cursor if has_more else None}
 

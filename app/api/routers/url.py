@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Query, Depends
 
 
 from app.limiter import _limiter_handler
+from app.core.config import get_settings
 from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
@@ -16,8 +17,8 @@ from app.dependencies import (
 router = APIRouter()
 
 
-READ_LIMIT_KEY = "limiter:read"
-WRITE_LIMIT_KEY = "limiter:write"
+READ_LIMIT_KEY = get_settings().READ_LIMIT_KEY
+WRITE_LIMIT_KEY = get_settings().WRITE_LIMIT_KEY
 
 
 @router.post(

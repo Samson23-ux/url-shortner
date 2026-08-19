@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
 
 
-from app.limiter import init_limiters
 from app.api.routers import router
 from app.core.config import get_settings
 from app.database.session import redis_client
@@ -26,7 +25,7 @@ sentry_sdk.init(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.redis = redis_client
-    await init_limiters(redis_client)
+    app.state.limiters = {}
     yield
     await app.state.redis.aclose()
 
