@@ -1,4 +1,3 @@
-import time
 import asyncio
 from typing import Annotated
 from redis.asyncio import Redis
@@ -201,7 +200,6 @@ def get_current_active_user_fast_with_rate_limit(
         user_service: UserServiceDep,
         identity: Annotated[tuple[str, str], Depends(_decode_credentials)],
     ) -> CachedUser:
-        start = time.perf_counter()
         user_email, user_type = identity
 
         if user_type == "email":
@@ -216,9 +214,6 @@ def get_current_active_user_fast_with_rate_limit(
         curr_user, _ = await asyncio.gather(
             get_user, check_rate_limit(request, response)
         )
-
-        total = (time.perf_counter() - start) * 1000
-        print(f"AUTH+RATELIMIT TOTAL LATENCY ===========>>>>>>>>>>>>>> {total:.2f}")
 
         if curr_user.is_active is False:
             raise AuthenticationError()
