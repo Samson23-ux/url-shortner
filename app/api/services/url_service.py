@@ -1,3 +1,4 @@
+import time
 import sentry_sdk
 from uuid import UUID, uuid7
 from sqlalchemy import Sequence
@@ -44,6 +45,7 @@ class UrlService:
         Redis cuckoo filter is queried for quick existence check
         and fallback to db if slug exists for confirmation
         """
+        start = time.perf_counter()
         if slug:
             slug_db: Slug = await self._slug_repo.get_record(custom_slug=slug)
 
@@ -62,6 +64,8 @@ class UrlService:
                 slug_db: SlugInDB = SlugInDB(id=uuid7(), user_id=user_id, custom_slug=slug)
                 await self._slug_repo.insert_slug(slug_db)
 
+                total = (time.perf_counter() - start) * 1000
+                print(f"CREATE SLUG TOTAL LATENCY ===========>>>>>>>>>>>>>> {total:.2f}")
                 return slug_db
             except IntegrityError:
                 await self._uow.rollback()
@@ -78,6 +82,7 @@ class UrlService:
         user_id: UUID,
         shortened_url: str,
     ) -> Url:
+        start = time.perf_counter()
         url_db: UrlInDB = UrlInDB(
             id=uuid7(),
             user_id=user_id,
@@ -110,11 +115,14 @@ class UrlService:
 
             await self._url_repo.update_url(url_db)
 
+        total = (time.perf_counter() - start) * 1000
+        print(f"CREATE URL TOTAL LATENCY ===========>>>>>>>>>>>>>> {total:.2f}")
         return url_db
 
     async def shorten_url(
         self, uow: UnitOfWorkRepository, curr_user: User, url_payload: ShortenUrl
     ) -> UrlResponse:
+        start = time.perf_counter()
         # close active sessions
         await self._url_repo.aclose()
 
@@ -144,9 +152,14 @@ class UrlService:
                 shortened_url,
             )
 
+            commit_start = time.perf_counter()
             await uow.commit()
+            commit_total = (time.perf_counter() - commit_start) * 1000
+            print(f"COMMIT TOTAL LATENCY ===========>>>>>>>>>>>>>> {commit_total:.2f}")
 
             sentry_logger.info("Url shortened for user {email}", email=user_email)
+            total = (time.perf_counter() - start) * 1000
+            print(f"SHORTEN URL TOTAL LATENCY ===========>>>>>>>>>>>>>> {total:.2f}")
             return UrlResponse(**url_db.model_dump())
         except Exception as e:
             await uow.rollback()
