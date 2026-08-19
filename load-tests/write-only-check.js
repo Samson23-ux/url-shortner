@@ -122,8 +122,8 @@ export const options = {
       exec: 'createUrl',
       startVUs: 0,
       stages: [
-        { duration: '30s', target: 15 },
-        { duration: '1m', target: 15 },
+        { duration: '30s', target: 12 },
+        { duration: '1m', target: 12 },
         { duration: '15s', target: 0 },
       ],
       gracefulRampDown: '10s',

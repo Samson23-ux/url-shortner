@@ -24,7 +24,7 @@ router = APIRouter()
         "An optional unique custom slug can be provided based on preferences"
     ),
     response_model=SuccessResponse[UrlResponse],
-    # dependencies=[Depends(write_rate_limit)],
+    dependencies=[Depends(write_rate_limit)],
 )
 async def shorten_url(
     request: Request,
@@ -42,7 +42,7 @@ async def shorten_url(
     status_code=302,
     description="Redirects to the original url associated with the shortened url",
     response_class=RedirectResponse,
-    # dependencies=[Depends(read_rate_limit)],
+    dependencies=[Depends(read_rate_limit)],
 )
 async def redirect_to_url(
     request: Request,
