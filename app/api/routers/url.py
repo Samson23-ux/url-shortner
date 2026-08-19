@@ -63,7 +63,7 @@ async def redirect_to_url(
         CachedUser,
         Depends(
             get_current_active_user_fast_with_rate_limit(
-                key=READ_LIMIT_KEY, limit=20, unit="seconds"
+                key=READ_LIMIT_KEY, limit=15, unit="minutes"
             )
         ),
     ],
@@ -84,7 +84,7 @@ async def redirect_to_url(
     description="Get all shortened url",
     response_model=AllSuccessResponse[list[UrlResponse]],
     dependencies=[
-        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=15, unit="minutes"))
     ],
 )
 async def get_all_url(

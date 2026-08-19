@@ -48,9 +48,12 @@ const REQUEST_TIMEOUT = `${REQUEST_TIMEOUT_SECONDS}s`;
 const WARMUP_PATH = __ENV.WARMUP_PATH || '/';
 const SKIP_WARMUP = __ENV.SKIP_WARMUP === '1';
 
+// env: test bypasses the app's rate limiter (see app/limiter.py
+// _test_aware_identifier) so this measures the create path's own
+// capacity, not the rate limiter's throttling behavior.
 const authHeaders = AUTH_TOKEN
-  ? { Authorization: `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json' }
-  : { 'Content-Type': 'application/json' };
+  ? { Authorization: `Bearer ${AUTH_TOKEN}`, 'Content-Type': 'application/json', env: 'test' }
+  : { 'Content-Type': 'application/json', env: 'test' };
 
 // ---------------------------------------------------------------------------
 // Custom metrics — same names as the combined script for direct comparison

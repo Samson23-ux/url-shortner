@@ -43,7 +43,7 @@ async def create_slug(
     description="Get all craeted slug",
     response_model=AllSuccessResponse[list[SlugResponse]],
     dependencies=[
-        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=15, unit="minutes"))
     ],
 )
 async def get_all_slug(
@@ -69,7 +69,7 @@ async def get_all_slug(
     description="Get created slug",
     response_model=SuccessResponse[SlugResponse],
     dependencies=[
-        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
+        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=15, unit="minutes"))
     ],
 )
 async def get_slug(
