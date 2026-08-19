@@ -135,7 +135,7 @@ export const options = {
   },
 
   thresholds: {
-    create_latency: ['p(95)<350'],
+    create_latency: ['p(95)<200'],
     http_req_failed: ['rate<0.01'],
   },
 };
