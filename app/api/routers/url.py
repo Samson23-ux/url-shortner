@@ -5,13 +5,14 @@ from fastapi import APIRouter, Request, Query, Depends
 
 from app.limiter import _limiter_handler
 from app.core.config import get_settings
+from app.api.schemas.user import CachedUser
 from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
 from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
     UrlServiceDep,
     CurrentActiveUser,
-    CurrentActiveUserFast,
     UnitOfWorkRepo,
+    get_current_active_user_fast_with_rate_limit,
 )
 
 router = APIRouter()
@@ -29,16 +30,20 @@ WRITE_LIMIT_KEY = get_settings().WRITE_LIMIT_KEY
         "An optional unique custom slug can be provided based on preferences"
     ),
     response_model=SuccessResponse[UrlResponse],
-    dependencies=[
-        Depends(_limiter_handler(key=WRITE_LIMIT_KEY, limit=10, unit="minutes"))
-    ],
 )
 async def shorten_url(
     request: Request,
     uow: UnitOfWorkRepo,
     url_payload: ShortenUrl,
     url_service: UrlServiceDep,
-    curr_user: CurrentActiveUserFast,
+    curr_user: Annotated[
+        CachedUser,
+        Depends(
+            get_current_active_user_fast_with_rate_limit(
+                key=WRITE_LIMIT_KEY, limit=10, unit="minutes"
+            )
+        ),
+    ],
 ):
     url: UrlResponse = await url_service.shorten_url(uow, curr_user, url_payload)
     return SuccessResponse(message="Shortened url created successfully", data=url)
@@ -49,15 +54,19 @@ async def shorten_url(
     status_code=302,
     description="Redirects to the original url associated with the shortened url",
     response_class=RedirectResponse,
-    dependencies=[
-        Depends(_limiter_handler(key=READ_LIMIT_KEY, limit=20, unit="seconds"))
-    ],
 )
 async def redirect_to_url(
     request: Request,
     slug: str,
     url_service: UrlServiceDep,
-    curr_user: CurrentActiveUserFast,
+    curr_user: Annotated[
+        CachedUser,
+        Depends(
+            get_current_active_user_fast_with_rate_limit(
+                key=READ_LIMIT_KEY, limit=20, unit="seconds"
+            )
+        ),
+    ],
 ):
     url: str
     cache_hit: bool

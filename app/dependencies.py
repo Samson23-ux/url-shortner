@@ -1,12 +1,13 @@
-import time
+import asyncio
 from typing import Annotated
 from redis.asyncio import Redis
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Response
 import sentry_sdk.logger as sentry_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 
+from app.limiter import _limiter_handler
 from app.api.models.user import User
 from app.api.schemas.user import CachedUser
 from app.core.config import get_settings
@@ -170,34 +171,53 @@ async def get_current_active_user(curr_user: CurrentUser):
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 
 
-# Redis-first variant for hot, routes (e.g. create/redirect on the
-# url shortener). Returns a detached CachedUser — safe to read attributes
-# off, but never pass it to UserService.update_user/delete_user, since it
-# isn't attached to the request's DB session. Routes that mutate the user
-# record (logout, deactivate/reactivate/delete account) must keep using
-# CurrentActiveUser above.
-async def get_current_user_cached(
-    user_service: UserServiceDep,
-    identity: Annotated[tuple[str, str], Depends(_decode_credentials)],
-) -> CachedUser:
-    user_email, user_type = identity
-
-    if user_type == "email":
-        return await user_service.get_active_user_cached(
-            email=user_email, is_verified=True, is_deactivated=False
-        )
-    return await user_service.get_active_user_cached(
-        google_email=user_email, is_verified=True, is_deactivated=False
+# Redis-first variant for hot routes (e.g. create/redirect on the url
+# shortener). Returns a detached CachedUser — safe to read attributes off,
+# but never pass it to UserService.update_user/delete_user, since it isn't
+# attached to the request's DB session. Routes that mutate the user record
+# (logout, deactivate/reactivate/delete account) must keep using
+# CurrentActiveUser above. The auth-cache lookup itself now lives inside
+# get_current_active_user_fast_with_rate_limit below, run concurrently
+# with the rate-limit check rather than as its own separate dependency.
+def get_current_active_user_fast_with_rate_limit(
+    key: str, limit: int, unit: str, multiplier: int = 1
+):
+    """
+    Folds the auth-cache lookup and the rate-limit check into one
+    dependency that runs both concurrently via asyncio.gather, instead
+    of FastAPI resolving them as two separate, sequential dependencies.
+    Each is an independent Redis round trip with nothing depending on
+    the other's result — overlapping them turns two sequential hops
+    into roughly the cost of the slower one alone.
+    """
+    check_rate_limit = _limiter_handler(
+        key=key, limit=limit, unit=unit, multiplier=multiplier
     )
 
+    async def dependency(
+        request: Request,
+        response: Response,
+        user_service: UserServiceDep,
+        identity: Annotated[tuple[str, str], Depends(_decode_credentials)],
+    ) -> CachedUser:
+        user_email, user_type = identity
 
-CurrentCachedUser = Annotated[CachedUser, Depends(get_current_user_cached)]
+        if user_type == "email":
+            get_user = user_service.get_active_user_cached(
+                email=user_email, is_verified=True, is_deactivated=False
+            )
+        else:
+            get_user = user_service.get_active_user_cached(
+                google_email=user_email, is_verified=True, is_deactivated=False
+            )
 
+        curr_user, _ = await asyncio.gather(
+            get_user, check_rate_limit(request, response)
+        )
 
-async def get_current_active_user_cached(curr_user: CurrentCachedUser) -> CachedUser:
-    if curr_user.is_active is False:
-        raise AuthenticationError()
-    return curr_user
+        if curr_user.is_active is False:
+            raise AuthenticationError()
 
+        return curr_user
 
-CurrentActiveUserFast = Annotated[CachedUser, Depends(get_current_active_user_cached)]
+    return dependency
