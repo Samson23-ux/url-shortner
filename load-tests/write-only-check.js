@@ -18,12 +18,20 @@
  * Same config knobs and metric names as url-shortener-load-test.js's
  * create_urls scenario — results are directly comparable between the two.
  *
+ * Uses constant-arrival-rate (WRITE_RATE req/s) rather than ramping-vus,
+ * for the same reason redirect-only-check.js does: a fixed VU count is
+ * an emergent, not controlled, request rate — once latency moves under
+ * load, the actual req/s a given VU count produces moves with it. A
+ * fixed arrival rate is what makes binary-searching for the real
+ * throughput ceiling possible.
+ *
  * USAGE
  * -----
  *   k6 run \
  *     -e BASE_URL=http://localhost:8000 \
  *     -e AUTH_TOKEN=eyJ... \
- *     load-tests/sequential-create-check.js
+ *     -e WRITE_RATE=5 \
+ *     load-tests/write-only-check.js
  */
 
 import http from 'k6/http';
@@ -41,6 +49,13 @@ if (!BASE_URL) {
 
 const AUTH_TOKEN = __ENV.AUTH_TOKEN || '';
 const CREATE_PATH = __ENV.CREATE_PATH || '/api/v1/shorten';
+
+// Write throughput — conservative default. Binary-search upward via
+// WRITE_RATE to find the real ceiling, the same way REDIRECT_RATE is
+// used for the read path, rather than reading it off an emergent VU
+// ramp (which stops being a controlled variable once request latency
+// itself moves under load).
+const WRITE_RATE = Number(__ENV.WRITE_RATE) || 10; // req/s
 
 const REQUEST_TIMEOUT_SECONDS = Number(__ENV.REQUEST_TIMEOUT_SECONDS) || 10;
 const REQUEST_TIMEOUT = `${REQUEST_TIMEOUT_SECONDS}s`;
@@ -121,15 +136,15 @@ export function createUrl() {
 export const options = {
   scenarios: {
     create_urls: {
-      executor: 'ramping-vus',
+      executor: 'constant-arrival-rate',
       exec: 'createUrl',
-      startVUs: 0,
-      stages: [
-        { duration: '30s', target: 12 },
-        { duration: '1m', target: 12 },
-        { duration: '15s', target: 0 },
-      ],
-      gracefulRampDown: '10s',
+      rate: WRITE_RATE,
+      timeUnit: '1s',
+      duration: '2m',
+      // Worst case: every in-flight request hangs for the full timeout,
+      // so the pool needs to cover rate * timeout concurrently.
+      preAllocatedVUs: Math.max(20, Math.ceil(WRITE_RATE * REQUEST_TIMEOUT_SECONDS * 0.5)),
+      maxVUs: Math.max(50, Math.ceil(WRITE_RATE * REQUEST_TIMEOUT_SECONDS * 1.5)),
       tags: { scenario: 'create_urls' },
     },
   },

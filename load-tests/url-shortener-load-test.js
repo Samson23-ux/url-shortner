@@ -6,7 +6,9 @@
  * ----------------
  * Two scenarios run CONCURRENTLY (not chained) for the whole test window:
  *
- *   1. create_urls   — POST /shorten (write path). Moderate, VU-based load.
+ *   1. create_urls   — POST /shorten (write path). Constant-arrival-rate,
+ *      same rationale as redirects below — a controlled req/s, not an
+ *      emergent one.
  *   2. redirect_urls* — GET  /{code} (read path). The metric that matters —
  *      this is the endpoint that gets hammered in production, so it gets
  *      the more rigorous load model (see below).
@@ -17,8 +19,8 @@
  * for the whole run, not read throughput that depends on how fast writes
  * happen to complete.
  *
- * WHY constant-arrival-rate FOR REDIRECTS, NOT ramping-vus
- * ----------------------------------------------------------
+ * WHY constant-arrival-rate, NOT ramping-vus (applies to both scenarios)
+ * ------------------------------------------------------------------------
  * ramping-vus controls the number of *virtual users*, not the number of
  * *requests per second*. Under that executor, if the server slows down,
  * each VU simply spends longer waiting on each request and throughput
@@ -35,8 +37,9 @@
  *   - If p95/p99 latency or error rate blows up at a given rate, that's
  *     unambiguous evidence the server can't sustain that throughput —
  *     not an artifact of the executor backing off.
- *   - You can binary-search REDIRECT_RATE across runs to find the actual
- *     sustained-throughput ceiling, which is the number worth quoting.
+ *   - You can binary-search REDIRECT_RATE / WRITE_RATE across runs to
+ *     find the actual sustained-throughput ceiling, which is the number
+ *     worth quoting.
  *
  * redirect_urls runs at a sustained rate for the bulk of the test, then
  * redirect_urls_spike (also constant-arrival-rate, at a much higher rate,
@@ -119,11 +122,11 @@
  *      only needs to cover `rate * timeout`, not `rate * 60s` — the sizing
  *      below is derived from that.
  *
- * Also: REDIRECT_RATE / REDIRECT_SPIKE_RATE default to conservative
- * numbers (20 / 60 req/s) suitable for a small single-instance
- * deployment. If you're testing something with real headroom (a properly
- * sized instance, autoscaling, etc.), raise these — the defaults are a
- * safe starting point for binary-searching upward, not a target number.
+ * Also: REDIRECT_RATE / REDIRECT_SPIKE_RATE / WRITE_RATE default to
+ * conservative numbers suitable for a small single-instance deployment.
+ * If you're testing something with real headroom (a properly sized
+ * instance, autoscaling, etc.), raise these — the defaults are a safe
+ * starting point for binary-searching upward, not a target number.
  *
  * USAGE
  * -----
@@ -131,6 +134,7 @@
  *     -e BASE_URL=https://staging.example.com \
  *     -e AUTH_TOKEN=eyJ... \
  *     -e CODES=abc123,def456,ghi789 \
+ *     -e WRITE_RATE=5 \
  *     url-shortener-load-test.js
  */
 
@@ -172,11 +176,12 @@ const CACHE_HEADER_NAME = __ENV.CACHE_HEADER_NAME || 'X-Cache';
 const CACHE_HEADER_HIT_VALUE = (__ENV.CACHE_HEADER_HIT_VALUE || 'HIT').toUpperCase();
 const CACHE_HIT_THRESHOLD_MS = Number(__ENV.CACHE_HIT_THRESHOLD_MS) || 20;
 
-// Redirect throughput — conservative defaults for a small/single-instance
-// deployment. Binary-search upward from here (see header comment) rather
-// than assuming these are the numbers to hit.
+// Redirect/write throughput — conservative defaults for a small/single-
+// instance deployment. Binary-search upward from here (see header
+// comment) rather than assuming these are the numbers to hit.
 const REDIRECT_SUSTAINED_RATE = Number(__ENV.REDIRECT_RATE) || 5; // req/s
-const REDIRECT_SPIKE_RATE = Number(__ENV.REDIRECT_SPIKE_RATE) || 15; // req/s
+const REDIRECT_SPIKE_RATE = Number(__ENV.REDIRECT_SPIKE_RATE) || 10; // req/s
+const WRITE_RATE = Number(__ENV.WRITE_RATE) || 5; // req/s
 
 // Per-request timeout. Bounds how long a hung request can occupy a VU —
 // this is what makes constant-arrival-rate's VU pool sizing tractable
@@ -326,15 +331,15 @@ export function redirectUrl() {
 export const options = {
   scenarios: {
     create_urls: {
-      executor: 'ramping-vus',
+      executor: 'constant-arrival-rate',
       exec: 'createUrl',
-      startVUs: 0,
-      stages: [
-        { duration: '30s', target: 20 }, // ramp 0 -> 20 VUs
-        { duration: '1m', target: 20 },  // hold at 20 VUs
-        { duration: '15s', target: 0 },  // ramp down
-      ],
-      gracefulRampDown: '10s',
+      rate: WRITE_RATE,
+      timeUnit: '1s',
+      duration: '2m',
+      // Worst case: every in-flight request hangs for the full timeout,
+      // so the pool needs to cover rate * timeout concurrently.
+      preAllocatedVUs: Math.max(20, Math.ceil(WRITE_RATE * REQUEST_TIMEOUT_SECONDS * 0.5)),
+      maxVUs: Math.max(50, Math.ceil(WRITE_RATE * REQUEST_TIMEOUT_SECONDS * 1.5)),
       tags: { scenario: 'create_urls' },
     },
 
