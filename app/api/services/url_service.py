@@ -59,7 +59,9 @@ class UrlService:
 
         for _ in range(self.MAX_RETRIES):
             try:
-                slug_db: SlugInDB = SlugInDB(id=uuid7(), user_id=user_id, custom_slug=slug)
+                slug_db: SlugInDB = SlugInDB(
+                    id=uuid7(), user_id=user_id, custom_slug=slug
+                )
                 await self._slug_repo.insert_slug(slug_db)
 
                 return slug_db
@@ -131,9 +133,7 @@ class UrlService:
             user_email: str = curr_user.google_email
 
         try:
-            slug: Slug = await self._create_slug(
-                payload_slug, user_email, curr_user.id
-            )
+            slug: Slug = await self._create_slug(payload_slug, user_email, curr_user.id)
             shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug.custom_slug}"
 
             url_db: UrlInDB = await self._create_url(
@@ -181,15 +181,12 @@ class UrlService:
                 shortened_url: str = cached_url["shortened_url"]
                 expire_at: datetime = datetime.fromisoformat(cached_url["expire_at"])
             else:
-                url_db: tuple = await self._url_repo.get_url(
-                    slug,
-                    Url.id,
-                    Url.original_url,
-                    Url.shortened_url,
-                    Url.expire_at,
+                shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug}"
+                url: Url | None = await self._url_repo.get_record(
+                    shortened_url=shortened_url
                 )
 
-                if not url_db:
+                if not url:
                     sentry_logger.error(
                         "No url found with the slug {slug} for user {email}",
                         slug=slug,
@@ -197,7 +194,10 @@ class UrlService:
                     )
                     raise UrlNotFoundError(slug=slug)
 
-                url_id, original_url, shortened_url, expire_at = url_db
+                url_id: str = url.id
+                expire_at: datetime = url.expire_at
+                original_url: str = url.original_url
+                shortened_url: str = url.shortened_url
 
             if expire_at <= datetime.now(timezone.utc):
                 raise UrlExpiredError(url=shortened_url)
@@ -291,29 +291,29 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
-        url_db: tuple = await self._url_repo.get_url(slug, Url)
+        shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug}"
+        url: Url | None = await self._url_repo.get_record(shortened_url=shortened_url)
 
-        if not url_db:
+        if not url:
             sentry_logger.error(
                 "No url found with the slug {slug} for user {email}",
                 slug=slug,
                 email=user_email,
             )
             raise UrlNotFoundError(slug=slug)
-        url_db: Url | None = url_db[0]
 
         try:
-            old_url: str = url_db.original_url
+            old_url: str = url.original_url
             new_url: str = url_update.new_original_url
 
-            url_db.original_url = new_url
-            url_db.last_updated_at = datetime.now(timezone.utc)
+            url.original_url = new_url
+            url.last_updated_at = datetime.now(timezone.utc)
 
             await self._redis_repo.delete_key(f"url:{slug}")
 
-            self._url_repo.add(model=url_db)
+            self._url_repo.add(model=url)
             await self._url_repo.commit()
-            await self._url_repo.refresh(url_db)
+            await self._url_repo.refresh(url)
 
             sentry_logger.info(
                 "{old_url} updated to {new_url} for user {email}",
@@ -322,7 +322,7 @@ class UrlService:
                 email=user_email,
             )
 
-            return UrlResponse.model_validate(url_db)
+            return UrlResponse.model_validate(url)
         except Exception as e:
             await self._url_repo.rollback()
 
@@ -339,22 +339,22 @@ class UrlService:
         else:
             user_email: str = curr_user.google_email
 
-        url_db: tuple = await self._url_repo.get_url(slug, Url)
+        shortened_url: str = f"{get_settings().SHORTEN_URL}/{slug}"
+        url: Url | None = await self._url_repo.get_record(shortened_url=shortened_url)
 
-        if not url_db:
+        if not url:
             sentry_logger.error(
                 "No url found with the slug {slug} for user {email}",
                 slug=slug,
                 email=user_email,
             )
             raise UrlNotFoundError(slug=slug)
-        url_db: Url | None = url_db[0]
 
         try:
-            original_url: str = url_db.original_url
+            original_url: str = url.original_url
 
             await self._redis_repo.delete_key(f"url:{slug}")
-            await self._url_repo.delete(url_db)
+            await self._url_repo.delete(url)
             await self._url_repo.commit()
 
             sentry_logger.info(

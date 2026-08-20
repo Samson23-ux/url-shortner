@@ -48,17 +48,6 @@ class UrlRepository(BaseRepository[UrlBase, Url]):
         }
         return [sortable_fields.get(sort, self.model.created_at)]
 
-    async def get_url(self, slug: str, *rows) -> Any:
-        stmt = (
-            select(*rows)
-            .select_from(Slug)
-            .join(self.model)
-            .where(Slug.custom_slug == slug)
-        )
-
-        res = await self._async_session.execute(stmt)
-        return res.first()
-
     async def insert_url(self, url: UrlInDB) -> Url:
         insert_stmt = insert(self.model).values(**url.model_dump())
         insert_stmt = insert_stmt.on_conflict_do_update(
