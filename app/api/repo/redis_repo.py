@@ -1,5 +1,5 @@
-from redis.asyncio import Redis
 from redis import Redis as SyncRedis
+from redis.asyncio import Redis
 
 
 class RedisRepository:

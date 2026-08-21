@@ -1,31 +1,30 @@
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
-from fastapi import APIRouter, Request, Response, Depends
 
-
-from app.core.security import oauth
-from app.core.config import get_settings
-from app.limiter import _limiter_handler
-from app.api.schemas.response import SuccessResponse
-from app.api.schemas.user import GoogleUserResponse, EmailUserResponse
-from app.dependencies import (
-    AuthServiceDep,
-    UserServiceDep,
-    CurrentActiveUser,
-    UnitOfWorkRepo,
-)
 from app.api.schemas.auth import (
-    SignUpResponse,
+    DeactivateResponse,
     EmailLogin,
     EmailVerify,
-    Token,
-    ResendOtp,
-    OtpResendResponseV1,
-    PasswordUpdate,
-    PasswordReset,
     LogoutResponse,
-    DeactivateResponse,
+    OtpResendResponseV1,
+    PasswordReset,
+    PasswordUpdate,
     ReactivateUser,
+    ResendOtp,
+    SignUpResponse,
+    Token,
 )
+from app.api.schemas.response import SuccessResponse
+from app.api.schemas.user import EmailUserResponse, GoogleUserResponse
+from app.core.config import get_settings
+from app.core.security import oauth
+from app.dependencies import (
+    AuthServiceDep,
+    CurrentActiveUser,
+    UnitOfWorkRepo,
+    UserServiceDep,
+)
+from app.limiter import _limiter_handler
 
 router = APIRouter()
 

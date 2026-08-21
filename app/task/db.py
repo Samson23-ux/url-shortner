@@ -1,14 +1,12 @@
 from redis import Redis
-from redis.retry import Retry
-from redis.connection import ConnectionPool
-from sqlalchemy import Engine, create_engine
 from redis.backoff import ExponentialBackoff
+from redis.connection import ConnectionPool
+from redis.exceptions import ConnectionError, TimeoutError
+from redis.retry import Retry
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from redis.exceptions import TimeoutError, ConnectionError
-
 
 from app.core.config import get_settings
-
 
 db_engine: Engine = create_engine(
     url=get_settings().SYNC_DB_URL,

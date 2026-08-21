@@ -1,15 +1,15 @@
 from typing import Annotated
-from fastapi import APIRouter, Request, Query, Depends
 
+from fastapi import APIRouter, Depends, Query, Request
 
-from app.limiter import _limiter_handler
+from app.api.schemas.response import AllSuccessResponse, SuccessResponse
+from app.api.schemas.slug import SlugCreate, SlugResponse, SlugUpdate
 from app.core.config import get_settings
-from app.api.schemas.slug import SlugCreate, SlugUpdate, SlugResponse
-from app.api.schemas.response import SuccessResponse, AllSuccessResponse
 from app.dependencies import (
-    SlugServiceDep,
     CurrentActiveUser,
+    SlugServiceDep,
 )
+from app.limiter import _limiter_handler
 
 router = APIRouter()
 
@@ -50,9 +50,9 @@ async def get_all_slug(
     request: Request,
     slug_service: SlugServiceDep,
     curr_user: CurrentActiveUser,
-    sort: Annotated[str, Query(description="Sort by created_at")] = None,
+    sort: Annotated[str | None, Query(description="Sort by created_at")] = None,
     order: Annotated[str, Query(description="Order in asc or desc")] = "asc",
-    cursor: Annotated[str, Query()] = None,
+    cursor: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
     slugs, cursor = await slug_service.get_all_slugs(

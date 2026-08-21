@@ -1,5 +1,5 @@
-from app.api.schemas.auth import OtpInDB
 from app.api.repo.otp_repo import OtpRepository
+from app.api.schemas.auth import OtpInDB
 
 
 class OtpService:

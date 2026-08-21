@@ -1,10 +1,10 @@
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
+from uuid import uuid7
+
 import httpx
 import pytest
-from uuid import uuid7
 from redis.asyncio import Redis
-from unittest.mock import patch, AsyncMock
-from datetime import datetime, timezone, timedelta
-
 
 from app.api.models.otp import Otp
 from tests.conftest import mock_auth_service
@@ -313,7 +313,7 @@ class TestPasswordUpdateAndReset:
             user_id=uuid7(),
             purpose="password_reset",
             status="valid",
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+            expires_at=datetime.now(UTC) + timedelta(minutes=15),
         )
 
         otp_payload: dict = {

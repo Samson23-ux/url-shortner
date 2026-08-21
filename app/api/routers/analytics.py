@@ -1,15 +1,15 @@
 from typing import Annotated
-from fastapi import APIRouter, Request, Query, Depends
 
+from fastapi import APIRouter, Depends, Query, Request
 
-from app.limiter import _limiter_handler
-from app.core.config import get_settings
-from app.api.schemas.response import SuccessResponse
 from app.api.schemas.analytics import AnalyticsResponse
+from app.api.schemas.response import SuccessResponse
+from app.core.config import get_settings
 from app.dependencies import (
-    CurrentActiveUser,
     AnalyticsServiceDep,
+    CurrentActiveUser,
 )
+from app.limiter import _limiter_handler
 
 router = APIRouter()
 
@@ -31,7 +31,7 @@ async def get_analytics(
     analytics_service: AnalyticsServiceDep,
     curr_user: CurrentActiveUser,
     day: Annotated[
-        str,
+        str | None,
         Query(
             description=(
                 "Filter total clicks per url for today, last seven days,"

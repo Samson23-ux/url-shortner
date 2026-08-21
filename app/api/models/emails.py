@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import DateTime, PrimaryKeyConstraint, UUID
+from datetime import UTC, datetime
 
+from sqlalchemy import UUID, DateTime, PrimaryKeyConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
 
@@ -14,7 +14,7 @@ class Email(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID)
     processed_emails: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     __table_args__ = (

@@ -1,23 +1,22 @@
 from fastapi import FastAPI
 
-
 from app.core.exceptions import (
-    create_exception_handler,
-    ServerError,
     AuthenticationError,
-    InvalidSlugError,
-    UserExistsError,
-    InvalidOtpError,
-    UserNotFoundError,
     CredentialError,
+    InvalidOtpError,
+    InvalidSlugError,
     PasswordMissingError,
+    ServerError,
     SlugExistsError,
-    UrlExistsError,
-    UrlNotFoundError,
     SlugNotFoundError,
+    SlugsNotFoundError,
+    UrlExistsError,
     UrlExpiredError,
+    UrlNotFoundError,
     UrlsNotFoundError,
-    SlugsNotFoundError
+    UserExistsError,
+    UserNotFoundError,
+    create_exception_handler,
 )
 
 

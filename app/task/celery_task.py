@@ -1,28 +1,28 @@
-import resend
 import secrets
-import psycopg2
-from uuid import UUID, uuid4
-from resend.exceptions import ResendError
-from datetime import datetime, timezone, timedelta, date
+from datetime import UTC, date, datetime, timedelta
+from uuid import UUID
 
+import psycopg2
+import resend
+from resend.exceptions import ResendError
 
 from app.api.models.emails import Email
-from app.api.schemas.auth import OtpInDB
-from app.core.config import get_settings
-from app.task.celery_app import celery_app
-from app.api.schemas.emails import EmailInDB
-from app.core.exceptions import TransientError
-from app.api.repo.otp_repo import OtpRepository
-from app.api.schemas.analytics import UrlStatInDB
-from app.api.repo.user_repo import UserRepository
-from app.api.repo.redis_repo import RedisRepository
+from app.api.repo.analytics_repo import AnalyticsRepository
 from app.api.repo.email_repo import EmailRepository
+from app.api.repo.otp_repo import OtpRepository
+from app.api.repo.redis_repo import RedisRepository
+from app.api.repo.user_repo import UserRepository
+from app.api.schemas.analytics import UrlStatInDB
+from app.api.schemas.auth import OtpInDB
+from app.api.schemas.emails import EmailInDB
+from app.api.services.analytics_service import AnalyticsService
+from app.api.services.email_service import EmailService
 from app.api.services.otp_service import OtpService
 from app.api.services.user_service import UserService
-from app.api.services.email_service import EmailService
+from app.core.config import get_settings
+from app.core.exceptions import TransientError
+from app.task.celery_app import celery_app
 from app.task.db import get_db_session, get_redis_client
-from app.api.repo.analytics_repo import AnalyticsRepository
-from app.api.services.analytics_service import AnalyticsService
 
 
 def get_email_service() -> EmailService:
@@ -228,7 +228,7 @@ def send_verification_email(
                 otp=otp,
                 user_id=UUID(user_id),
                 purpose=purpose,
-                expires_at=datetime.now(timezone.utc)
+                expires_at=datetime.now(UTC)
                 + timedelta(minutes=get_settings().OTP_EXPIRE_TIME),
             )
 
@@ -247,8 +247,16 @@ def send_verification_email(
         email_service._email_repo.close()
 
 
-@celery_app.task(base=BaseTaskWithFailure)
-def send_reminder_email(email_id: UUID = uuid4()):
+@celery_app.task(base=BaseTaskWithFailure, bind=True)
+def send_reminder_email(self, email_id: UUID | None = None):
+    # Celery's own task id is unique per scheduled invocation but stable
+    # across autoretry_for retries of that same invocation, so it's used
+    # as the default instead of uuid4() in the signature (which would
+    # only ever generate one id, at task-definition time, shared by every
+    # periodic run of the task's whole worker lifetime).
+    if email_id is None:
+        email_id = UUID(self.request.id)
+
     try:
         user_service = get_user_service()
         email_service = get_email_service()

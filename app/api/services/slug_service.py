@@ -1,12 +1,11 @@
 import sentry_sdk
-from sqlalchemy import Sequence
 import sentry_sdk.logger as sentry_logger
+from sqlalchemy import Sequence
 
-
-from app.api.models.user import User
 from app.api.models.slug import Slug
-from app.api.repo.slug_repo import SlugRepository
+from app.api.models.user import User
 from app.api.repo.redis_repo import RedisRepository
+from app.api.repo.slug_repo import SlugRepository
 from app.api.schemas.slug import SlugCreate, SlugResponse, SlugUpdate
 from app.core.exceptions import (
     ServerError,

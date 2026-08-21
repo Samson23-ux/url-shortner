@@ -1,11 +1,10 @@
-from uuid import UUID
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.api.models.user import UserType
 from app.api.models.otp import OtpPurpose, OtpStatus
+from app.api.models.user import UserType
 
 
 class AuthBase(BaseModel):
@@ -25,7 +24,7 @@ class Token(AuthBase):
 class EmailVerify(AuthBase):
     email: str
     otp_code: str
-    password: Optional[str] = Field(
+    password: str | None = Field(
         default=None,
         min_length=8,
         description="A password value should be passed for password reset",

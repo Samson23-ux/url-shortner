@@ -1,13 +1,13 @@
+from contextlib import asynccontextmanager
+
 import sentry_sdk
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
 from starlette.middleware.sessions import SessionMiddleware
-
 
 from app.api.routers import router
 from app.core.config import get_settings
-from app.database.session import redis_client
 from app.core.exception_handlers import ExceptionHandler
+from app.database.session import redis_client
 
 settings = get_settings()
 

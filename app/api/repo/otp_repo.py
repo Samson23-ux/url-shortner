@@ -1,10 +1,9 @@
+from datetime import UTC, datetime
 from typing import Any
-from datetime import datetime, timezone
-
 
 from app.api.models.otp import Otp
-from app.api.schemas.auth import AuthBase
 from app.api.repo.base import BaseRepository
+from app.api.schemas.auth import AuthBase
 
 
 class OtpRepository(BaseRepository[AuthBase, Otp]):
@@ -24,7 +23,7 @@ class OtpRepository(BaseRepository[AuthBase, Otp]):
         if "status" in filters:
             filter_conditions.append(self.model.status == filters["status"])
         if "expires_at" in filters:
-            filter_conditions.append(self.model.expires_at > datetime.now(timezone.utc))
+            filter_conditions.append(self.model.expires_at > datetime.now(UTC))
 
         return filter_conditions
 

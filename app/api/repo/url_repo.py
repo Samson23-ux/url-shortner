@@ -1,8 +1,8 @@
+from datetime import UTC, datetime
 from typing import Any
-from sqlalchemy import update
-from datetime import datetime, timezone
-from sqlalchemy.dialects.postgresql import insert
 
+from sqlalchemy import update
+from sqlalchemy.dialects.postgresql import insert
 
 from app.api.models.url import Url
 from app.api.repo.base import BaseRepository
@@ -30,11 +30,11 @@ class UrlRepository(BaseRepository[UrlBase, Url]):
         if "is_valid" in filters:
             if filters["is_valid"]:
                 filter_conditions.append(
-                    self.model.expire_at > datetime.now(timezone.utc)
+                    self.model.expire_at > datetime.now(UTC)
                 )
             else:
                 filter_conditions.append(
-                    self.model.expire_at < datetime.now(timezone.utc)
+                    self.model.expire_at < datetime.now(UTC)
                 )
 
         return filter_conditions

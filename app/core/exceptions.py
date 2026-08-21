@@ -11,19 +11,16 @@ class AppException(Exception):
 class ServerError(AppException):
     """Internal Server error."""
 
-    pass
 
 
 class TransientError(AppException):
     """Worker Transient error"""
 
-    pass
 
 
 class AuthenticationError(AppException):
     """User not authenticated."""
 
-    pass
 
 
 class InvalidSlugError(AppException):
@@ -50,19 +47,16 @@ class UserNotFoundError(AppException):
 class InvalidOtpError(AppException):
     """Invalid otp received"""
 
-    pass
 
 
 class CredentialError(AppException):
     """wrong credentials provided"""
 
-    pass
 
 
 class PasswordMissingError(AppException):
     """password not set for password reset"""
 
-    pass
 
 
 class UrlExistsError(AppException):
@@ -82,7 +76,6 @@ class SlugExistsError(AppException):
 class UrlsNotFoundError(AppException):
     """Urls not found"""
 
-    pass
 
 
 class UrlNotFoundError(AppException):
@@ -95,7 +88,6 @@ class UrlNotFoundError(AppException):
 class SlugsNotFoundError(AppException):
     """Slugs not found"""
 
-    pass
 
 class SlugNotFoundError(AppException):
     """Slug not found"""

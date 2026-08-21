@@ -1,16 +1,14 @@
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
-
-from app.api import models    # noqa: F401
+from app.api import models  # noqa: F401
 from app.api.models.base import Base
 from app.core.config import get_settings
-
 
 db_url: str = get_settings().ASYNC_DB_URL
 

@@ -1,10 +1,10 @@
+from datetime import UTC, datetime
+from uuid import UUID
+
 import httpx
 import pytest
-from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
-from datetime import date
 from app.api.models.url_stat import UrlStat
 
 
@@ -25,7 +25,7 @@ class TestGetAnalytics:
         access_token = login.json()["data"]["access_token"]
 
         url_id: str = shorten_url.json()["data"]["id"]
-        url_stat: UrlStat = UrlStat(url_id=UUID(url_id), date=date.today())
+        url_stat: UrlStat = UrlStat(url_id=UUID(url_id), date=datetime.now(UTC).date())
 
         await create_test_url_stat(async_session, url_stat)
 
@@ -50,7 +50,9 @@ class TestGetAnalytics:
         access_token = login.json()["data"]["access_token"]
 
         url_id: str = shorten_url.json()["data"]["id"]
-        url_stat: UrlStat = UrlStat(url_id=UUID(url_id), clicks=20, date=date.today())
+        url_stat: UrlStat = UrlStat(
+            url_id=UUID(url_id), clicks=20, date=datetime.now(UTC).date()
+        )
 
         await create_test_url_stat(async_session, url_stat)
 

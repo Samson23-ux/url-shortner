@@ -1,16 +1,16 @@
 import time
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
-from redis.asyncio import Redis
 from fastapi import Request, Response
-from pyrate_limiter.limiter import Limiter
-from fastapi_limiter.depends import RateLimiter
 from fastapi_limiter.callback import default_callback
+from fastapi_limiter.depends import RateLimiter
 from fastapi_limiter.identifier import default_identifier
+from pyrate_limiter.abstracts import AbstractBucket, Duration, Rate, RateItem
 from pyrate_limiter.abstracts.bucket import BucketFactory
 from pyrate_limiter.buckets.redis_bucket import RedisBucket
-from pyrate_limiter.abstracts import Rate, Duration, RateItem, AbstractBucket
+from pyrate_limiter.limiter import Limiter
+from redis.asyncio import Redis
 
 
 async def _test_aware_identifier(request: Request) -> str | Any:
@@ -106,7 +106,7 @@ async def get_limiter(request: Request, config: tuple) -> RateLimiter:
 
 
 def _limiter_handler(
-    key: str, limit: int = None, unit: str = None, multiplier: int = 1
+    key: str, limit: int | None = None, unit: str | None = None, multiplier: int = 1
 ):
     async def rate_limiter(request: Request, response: Response):
         config = (key, limit, unit, multiplier)

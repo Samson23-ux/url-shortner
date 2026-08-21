@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
 """
 Share a session across different repo to ensure atomicity
 """

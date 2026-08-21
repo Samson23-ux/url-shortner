@@ -1,30 +1,30 @@
-import sentry_sdk
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid7
-from sqlalchemy import Sequence
+
+import sentry_sdk
 import sentry_sdk.logger as sentry_logger
+from sqlalchemy import Sequence
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone, timedelta, date
 
-
-from app.api.models.url import Url
 from app.api.models.slug import Slug
+from app.api.models.url import Url
 from app.api.models.user import User
-from app.core.config import get_settings
-from app.api.schemas.slug import SlugInDB
-from app.utils import generate_random_slug
-from app.api.repo.url_repo import UrlRepository
-from app.api.repo.slug_repo import SlugRepository
 from app.api.repo.redis_repo import RedisRepository
+from app.api.repo.slug_repo import SlugRepository
 from app.api.repo.unit_of_work import UnitOfWorkRepository
-from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse, UrlInDB
+from app.api.repo.url_repo import UrlRepository
+from app.api.schemas.slug import SlugInDB
+from app.api.schemas.url import ShortenUrl, UrlInDB, UrlResponse, UrlUpdate
+from app.core.config import get_settings
 from app.core.exceptions import (
     ServerError,
     SlugExistsError,
     UrlExistsError,
-    UrlNotFoundError,
     UrlExpiredError,
+    UrlNotFoundError,
     UrlsNotFoundError,
 )
+from app.utils import generate_random_slug
 
 
 class UrlService:
@@ -86,7 +86,7 @@ class UrlService:
             slug_id=slug_id,
             original_url=url,
             shortened_url=shortened_url,
-            expire_at=datetime.now(timezone.utc)
+            expire_at=datetime.now(UTC)
             + timedelta(days=get_settings().URL_EXPIRE_TIME),
         )
         res = await self._url_repo.insert_url(url_db)
@@ -94,7 +94,7 @@ class UrlService:
         # slug_id differs when the url already exists
         # since only the original_url is updated on conflict
         if slug_id != res.slug_id:
-            if res.expire_at > datetime.now(timezone.utc):
+            if res.expire_at > datetime.now(UTC):
                 sentry_logger.error(
                     "User {email} provided an existing url. Url: {url}",
                     email=user_email,
@@ -105,8 +105,8 @@ class UrlService:
             url_db.id = res.id
             url_db.slug_id = slug_id
             url_db.shortened_url = shortened_url
-            url_db.last_updated_at = datetime.now(timezone.utc)
-            url_db.expire_at = datetime.now(timezone.utc) + timedelta(
+            url_db.last_updated_at = datetime.now(UTC)
+            url_db.expire_at = datetime.now(UTC) + timedelta(
                 days=get_settings().URL_EXPIRE_TIME
             )
 
@@ -199,12 +199,12 @@ class UrlService:
                 original_url: str = url.original_url
                 shortened_url: str = url.shortened_url
 
-            if expire_at <= datetime.now(timezone.utc):
+            if expire_at <= datetime.now(UTC):
                 raise UrlExpiredError(url=shortened_url)
 
             if not cached_url:
                 cache_ttl: int = int(
-                    (expire_at - datetime.now(timezone.utc)).total_seconds()
+                    (expire_at - datetime.now(UTC)).total_seconds()
                 )
                 await self._redis_repo.cache_url(
                     cache_key,
@@ -219,7 +219,7 @@ class UrlService:
 
             # use redis counter to track clicks per day
             ttl: int = 60 * 60 * 48
-            key: str = f"clicks:{url_id}:{date.today().isoformat()}"
+            key: str = f"clicks:{url_id}:{datetime.now(UTC).date().isoformat()}"
             await self._redis_repo.increment_clicks(key, ttl)
 
             sentry_logger.info(
@@ -307,7 +307,7 @@ class UrlService:
             new_url: str = url_update.new_original_url
 
             url.original_url = new_url
-            url.last_updated_at = datetime.now(timezone.utc)
+            url.last_updated_at = datetime.now(UTC)
 
             await self._redis_repo.delete_key(f"url:{slug}")
 

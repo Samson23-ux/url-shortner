@@ -1,9 +1,9 @@
-from uuid import UUID
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
-from sqlalchemy import select, func
-from sqlalchemy.dialects.postgresql import insert
-from datetime import datetime, timezone, timedelta, date
+from uuid import UUID
 
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.api.models.url import Url
 from app.api.models.url_stat import UrlStat
@@ -104,7 +104,7 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
         return res.all()
 
     async def get_recently_created_urls(self, user_id: UUID):
-        recent: datetime = datetime.now(timezone.utc) - timedelta(days=3)
+        recent: datetime = datetime.now(UTC) - timedelta(days=3)
 
         stmt = select(Url.shortened_url).where(
             Url.user_id == user_id, Url.created_at >= recent
@@ -114,12 +114,11 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
         return res.all()
 
     async def get_total_clicks_per_url(self, user_id: UUID, day: str):
+        today: date = datetime.now(UTC).date()
         filter_mappings: dict = {
-            "today": self.model.date == date.today(),
-            "last seven days": self.model.date
-            >= date.today() - timedelta(days=7),
-            "last fourteen days": self.model.date
-            >= date.today() - timedelta(days=14),
+            "today": self.model.date == today,
+            "last seven days": self.model.date >= today - timedelta(days=7),
+            "last fourteen days": self.model.date >= today - timedelta(days=14),
         }
         stmt = (
             select(Url.shortened_url, func.sum(self.model.clicks))
@@ -131,7 +130,7 @@ class AnalyticsRepository(BaseRepository[AnalyticsBase, UrlStat]):
 
         if day:
             day_filter = filter_mappings.get(
-                day, Url.created_at >= datetime.now(timezone.utc) - timedelta(days=1)
+                day, Url.created_at >= datetime.now(UTC) - timedelta(days=1)
             )
             stmt = stmt.where(day_filter)
 

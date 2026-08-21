@@ -1,42 +1,42 @@
-import sentry_sdk
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
-import sentry_sdk.logger as sentry_logger
-from datetime import datetime, timezone, timedelta
 
+import sentry_sdk
+import sentry_sdk.logger as sentry_logger
 
 from app.api.models.otp import Otp
 from app.api.models.user import User
-from app.core.config import get_settings
 from app.api.repo.otp_repo import OtpRepository
-from app.api.repo.user_repo import UserRepository
 from app.api.repo.redis_repo import RedisRepository
-from app.api.services.user_service import UserService
-from app.task.celery_task import send_verification_email
 from app.api.repo.unit_of_work import UnitOfWorkRepository
-from app.api.schemas.user import UserInDB, EmailUserResponse, GoogleUserResponse
+from app.api.repo.user_repo import UserRepository
+from app.api.schemas.auth import (
+    EmailLogin,
+    EmailVerify,
+    PasswordReset,
+    PasswordUpdate,
+    ReactivateUser,
+    ResendOtp,
+    TokenData,
+)
+from app.api.schemas.user import EmailUserResponse, GoogleUserResponse, UserInDB
+from app.api.services.user_service import UserService
+from app.core.config import get_settings
+from app.core.exceptions import (
+    AuthenticationError,
+    CredentialError,
+    InvalidOtpError,
+    PasswordMissingError,
+    ServerError,
+    UserExistsError,
+)
 from app.core.security import (
+    decode_token,
     hash_password,
     prepare_tokens,
     verify_password,
-    decode_token,
 )
-from app.api.schemas.auth import (
-    EmailLogin,
-    TokenData,
-    EmailVerify,
-    ResendOtp,
-    PasswordUpdate,
-    PasswordReset,
-    ReactivateUser
-)
-from app.core.exceptions import (
-    UserExistsError,
-    InvalidOtpError,
-    ServerError,
-    CredentialError,
-    AuthenticationError,
-    PasswordMissingError,
-)
+from app.task.celery_task import send_verification_email
 
 
 class AuthService:
@@ -413,7 +413,7 @@ class AuthService:
         else:
             user_email: str = curr_user.google_email
 
-        delete_at = datetime.now(timezone.utc) + timedelta(days=14)
+        delete_at = datetime.now(UTC) + timedelta(days=14)
 
         curr_user.is_active = False
         curr_user.is_deactivated = True

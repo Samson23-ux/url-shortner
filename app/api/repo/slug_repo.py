@@ -1,6 +1,6 @@
 from typing import Any
-from sqlalchemy import insert
 
+from sqlalchemy import insert
 
 from app.api.models.slug import Slug
 from app.api.repo.base import BaseRepository

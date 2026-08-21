@@ -1,9 +1,8 @@
 from uuid import UUID
 
-
 from app.api.models.emails import Email
-from app.api.schemas.emails import EmailInDB
 from app.api.repo.email_repo import EmailRepository
+from app.api.schemas.emails import EmailInDB
 
 
 class EmailService:

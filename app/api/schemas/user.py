@@ -1,8 +1,7 @@
-from uuid import UUID
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, ConfigDict
+from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 from app.api.models.user import UserType
 
@@ -12,25 +11,25 @@ class UserBase(BaseModel):
     is_active: bool = False
     is_verified: bool = False
     is_deactivated: bool = False
-    delete_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    five_days_before: Optional[datetime] = None
-    seven_days_before: Optional[datetime] = None
+    delete_at: datetime | None = None
+    created_at: datetime | None = None
+    five_days_before: datetime | None = None
+    seven_days_before: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class GoogleUser(UserBase):
-    google_id: Optional[str] = None
-    google_email: Optional[EmailStr] = None
+    google_id: str | None = None
+    google_email: EmailStr | None = None
 
 
 class EmailUser(UserBase):
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
 
 
 class UserInDB(GoogleUser, EmailUser):
-    hashed_password: Optional[str] = None
+    hashed_password: str | None = None
 
 
 class GoogleUserResponse(GoogleUser):
@@ -44,8 +43,8 @@ class EmailUserResponse(EmailUser):
 class CachedUser(BaseModel):
     id: UUID
     type: UserType
-    email: Optional[str] = None
-    google_email: Optional[str] = None
+    email: str | None = None
+    google_email: str | None = None
     is_active: bool
     is_verified: bool
     is_deactivated: bool

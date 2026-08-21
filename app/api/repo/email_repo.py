@@ -1,10 +1,10 @@
 from typing import Any
+
 from sqlalchemy import select
 
-
 from app.api.models.emails import Email
-from app.api.schemas.emails import EmailBase
 from app.api.repo.base import BaseRepository
+from app.api.schemas.emails import EmailBase
 
 
 class EmailRepository(BaseRepository[EmailBase, Email]):

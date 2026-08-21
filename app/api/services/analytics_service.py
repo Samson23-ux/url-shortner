@@ -1,14 +1,14 @@
 import asyncio
-import sentry_sdk
 from uuid import UUID
+
+import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 
-
 from app.api.models.user import User
-from app.core.exceptions import ServerError
-from app.api.repo.redis_repo import RedisRepository
 from app.api.repo.analytics_repo import AnalyticsRepository
+from app.api.repo.redis_repo import RedisRepository
 from app.api.schemas.analytics import AnalyticsResponse, UrlStatInDB
+from app.core.exceptions import ServerError
 
 
 class AnalyticsService:

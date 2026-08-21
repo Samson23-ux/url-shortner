@@ -1,32 +1,31 @@
 import asyncio
 from typing import Annotated
-from redis.asyncio import Redis
-from fastapi import Depends, Request, Response
+
 import sentry_sdk.logger as sentry_logger
+from fastapi import Depends, Request, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-
-from app.limiter import _limiter_handler
 from app.api.models.user import User
+from app.api.repo.analytics_repo import AnalyticsRepository
+from app.api.repo.otp_repo import OtpRepository
+from app.api.repo.redis_repo import RedisRepository
+from app.api.repo.slug_repo import SlugRepository
+from app.api.repo.unit_of_work import UnitOfWorkRepository
+from app.api.repo.url_repo import UrlRepository
+from app.api.repo.user_repo import UserRepository
 from app.api.schemas.user import CachedUser
+from app.api.services.analytics_service import AnalyticsService
+from app.api.services.auth_service import AuthService
+from app.api.services.slug_service import SlugService
+from app.api.services.url_service import UrlService
+from app.api.services.user_service import UserService
 from app.core.config import get_settings
+from app.core.exceptions import AuthenticationError
 from app.core.security import decode_token
 from app.database.session import get_session
-from app.api.repo.url_repo import UrlRepository
-from app.api.repo.otp_repo import OtpRepository
-from app.api.repo.user_repo import UserRepository
-from app.api.repo.slug_repo import SlugRepository
-from app.api.repo.redis_repo import RedisRepository
-from app.core.exceptions import AuthenticationError
-from app.api.services.url_service import UrlService
-from app.api.services.auth_service import AuthService
-from app.api.services.user_service import UserService
-from app.api.services.slug_service import SlugService
-from app.api.repo.unit_of_work import UnitOfWorkRepository
-from app.api.repo.analytics_repo import AnalyticsRepository
-from app.api.services.analytics_service import AnalyticsService
-
+from app.limiter import _limiter_handler
 
 # Auth bearer
 bearer = HTTPBearer(auto_error=False)

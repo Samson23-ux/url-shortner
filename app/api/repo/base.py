@@ -1,22 +1,21 @@
-from datetime import datetime
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from abc import ABC, abstractmethod
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import TypeVar, Generic, Any, Optional
-from sqlalchemy import select, Sequence, desc, asc, update, delete
+from datetime import datetime
+from typing import Any, TypeVar
 
+from pydantic import BaseModel
+from sqlalchemy import Sequence, asc, delete, desc, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.api.models.base import Base
 from app.api.schemas.auth import OtpInDB
 from app.core.security import decode_cursor, encode_cursor
 
-
 Entity = TypeVar("Entity", bound=BaseModel)
 SqlalchemyModel = TypeVar("SqlalchemyModel", bound=Base)
 
 
-class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
+class BaseRepository[Entity: BaseModel, SqlalchemyModel: Base](ABC):
     def __init__(
         self, async_session: AsyncSession = None, sync_session: Session = None
     ):
@@ -26,7 +25,7 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
     model: type[SqlalchemyModel]
 
     def add(
-        self, entity: Optional[Entity] = None, model: Optional[SqlalchemyModel] = None
+        self, entity: Entity | None = None, model: SqlalchemyModel | None = None
     ):
         if not model:
             model: SqlalchemyModel = self._entity_to_model(entity)

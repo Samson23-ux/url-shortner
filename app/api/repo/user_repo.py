@@ -1,11 +1,11 @@
+from datetime import UTC, datetime
 from typing import Any
-from sqlalchemy import and_
-from datetime import datetime, timezone
 
+from sqlalchemy import and_
 
 from app.api.models.user import User
-from app.api.schemas.user import UserBase
 from app.api.repo.base import BaseRepository
+from app.api.schemas.user import UserBase
 
 
 class UserRepository(BaseRepository[UserBase, User]):
@@ -31,7 +31,7 @@ class UserRepository(BaseRepository[UserBase, User]):
                 self.model.is_deactivated.is_(filters["is_deactivated"])
             )
         if "days_to_deactivation" in filters:
-            today: datetime = datetime.now(timezone.utc)
+            today: datetime = datetime.now(UTC)
             filter_conditions.append(
                 and_(
                     today >= self.model.seven_days_before,
@@ -39,7 +39,7 @@ class UserRepository(BaseRepository[UserBase, User]):
                 )
             )
         if "delete_deactivated" in filters:
-            filter_conditions.append(datetime.now(timezone.utc) >= self.model.delete_at)
+            filter_conditions.append(datetime.now(UTC) >= self.model.delete_at)
 
         return filter_conditions
 

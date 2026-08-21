@@ -1,12 +1,11 @@
+from datetime import UTC, datetime
+from typing import Self
 from uuid import UUID
-from typing import Optional
-from typing_extensions import Self
-from datetime import datetime, timezone
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
+from app.api.schemas.slug import RESERVED_WORDS, SLUG_PATTERN
 from app.core.exceptions import InvalidSlugError
-from app.api.schemas.slug import SLUG_PATTERN, RESERVED_WORDS
 
 
 class UrlBase(BaseModel):
@@ -18,7 +17,7 @@ class UrlBase(BaseModel):
 class ShortenUrl(UrlBase):
     model_config = ConfigDict(str_to_lower=True)
 
-    custom_slug: Optional[str] = Field(default=None, min_length=3, max_length=20)
+    custom_slug: str | None = Field(default=None, min_length=3, max_length=20)
 
     @model_validator(mode="after")
     def validate_slug(self) -> Self:
@@ -42,8 +41,8 @@ class UrlInDB(UrlBase):
     slug_id: UUID
     shortened_url: str
     expire_at: datetime
-    last_updated_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_updated_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class UrlResponse(BaseModel):
@@ -54,6 +53,6 @@ class UrlResponse(BaseModel):
     slug_id: UUID
     original_url: str
     shortened_url: str
-    last_updated_at: Optional[datetime] = None
+    last_updated_at: datetime | None = None
     created_at: datetime
     expire_at: datetime

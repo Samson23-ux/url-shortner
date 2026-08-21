@@ -1,12 +1,11 @@
 import re
-from uuid import UUID
 from datetime import datetime
-from typing_extensions import Self
+from typing import Self
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, model_validator
 
-
 from app.core.exceptions import InvalidSlugError
-
 
 RESERVED_WORDS = ["api", "dashboard", "admin"]
 SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")

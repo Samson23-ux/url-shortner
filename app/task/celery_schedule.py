@@ -1,8 +1,6 @@
 from celery.schedules import crontab
 
-
 from app.task.celery_app import celery_app
-
 
 celery_app.conf.beat_schedule = {
     "send_reminder": {

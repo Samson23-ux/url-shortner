@@ -1,17 +1,17 @@
 import uuid
 from datetime import date
-from sqlalchemy.orm import Mapped, mapped_column
+
 from sqlalchemy import (
-    text,
     UUID,
-    ForeignKey,
     Date,
+    ForeignKey,
+    Index,
     Integer,
     PrimaryKeyConstraint,
-    Index,
-    UniqueConstraint
+    UniqueConstraint,
+    text,
 )
-
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
 

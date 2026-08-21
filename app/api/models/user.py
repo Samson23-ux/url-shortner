@@ -1,18 +1,18 @@
 import enum
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import (
-    String,
-    Boolean,
-    text,
-    UUID,
-    DateTime,
-    PrimaryKeyConstraint,
-    Index,
-    Enum,
-)
+from datetime import UTC, datetime
 
+from sqlalchemy import (
+    UUID,
+    Boolean,
+    DateTime,
+    Enum,
+    Index,
+    PrimaryKeyConstraint,
+    String,
+    text,
+)
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
 
@@ -39,7 +39,7 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     is_deactivated: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     delete_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     five_days_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

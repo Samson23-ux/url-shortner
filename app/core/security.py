@@ -1,17 +1,15 @@
-import json
 import base64
-from uuid import uuid4
-from typing import Optional
-from jose import jwt, JWTError
+import json
 from binascii import Error as binascii_error
-from pwdlib.hashers.argon2 import Argon2Hasher
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
+
 from authlib.integrations.starlette_client import OAuth
+from jose import JWTError, jwt
+from pwdlib.hashers.argon2 import Argon2Hasher
 
-
-from app.core.config import get_settings
 from app.api.schemas.auth import TokenData
-
+from app.core.config import get_settings
 
 settings = get_settings()
 arg2_hasher = Argon2Hasher()
@@ -62,21 +60,21 @@ async def verify_password(password: str, hash_password: str) -> bool:
 
 
 async def create_access_token(
-    token_data: TokenData, expire_time: Optional[int] = None
+    token_data: TokenData, expire_time: int | None = None
 ) -> str:
     if not expire_time:
-        expire_time: datetime = datetime.now(timezone.utc) + timedelta(
+        expire_time: datetime = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_TIME
         )
     else:
-        expire_time: datetime = datetime.now(timezone.utc) + timedelta(
+        expire_time: datetime = datetime.now(UTC) + timedelta(
             minutes=expire_time
         )
 
     payload: dict = {
         "sub": token_data.email,
         "exp": expire_time,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "usertype": token_data.user_type,
     }
 
@@ -90,19 +88,19 @@ async def create_access_token(
 
 
 async def create_refresh_token(
-    token_data: TokenData, expire_time: Optional[int] = None
+    token_data: TokenData, expire_time: int | None = None
 ) -> tuple:
     if not expire_time:
-        expire_time: datetime = datetime.now(timezone.utc) + timedelta(
+        expire_time: datetime = datetime.now(UTC) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_TIME
         )
     else:
-        expire_time: datetime = datetime.now(timezone.utc) + timedelta(days=expire_time)
+        expire_time: datetime = datetime.now(UTC) + timedelta(days=expire_time)
 
     payload: dict = {
         "sub": token_data.email,
         "exp": expire_time,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "jti": str(uuid4()),
         "usertype": token_data.user_type,
     }

@@ -1,19 +1,19 @@
 from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
-from fastapi import APIRouter, Request, Query, Depends
 
-
-from app.limiter import _limiter_handler
-from app.core.config import get_settings
+from app.api.schemas.response import AllSuccessResponse, SuccessResponse
+from app.api.schemas.url import ShortenUrl, UrlResponse, UrlUpdate
 from app.api.schemas.user import CachedUser
-from app.api.schemas.url import ShortenUrl, UrlUpdate, UrlResponse
-from app.api.schemas.response import SuccessResponse, AllSuccessResponse
+from app.core.config import get_settings
 from app.dependencies import (
-    UrlServiceDep,
     CurrentActiveUser,
     UnitOfWorkRepo,
+    UrlServiceDep,
     get_current_active_user_fast_with_rate_limit,
 )
+from app.limiter import _limiter_handler
 
 router = APIRouter()
 
@@ -92,10 +92,10 @@ async def get_all_url(
     url_service: UrlServiceDep,
     curr_user: CurrentActiveUser,
     sort: Annotated[
-        str, Query(description="Sort by created_at, last_updated_at, expire_at")
+        str | None, Query(description="Sort by created_at, last_updated_at, expire_at")
     ] = None,
     order: Annotated[str, Query(description="Order in asc or desc")] = "asc",
-    cursor: Annotated[str, Query()] = None,
+    cursor: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query()] = 10,
 ):
     urls, cursor = await url_service.get_all_urls(curr_user, sort, order, cursor, limit)

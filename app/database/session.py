@@ -1,10 +1,10 @@
-from redis.retry import Retry
-from redis.asyncio import Redis
 from collections.abc import AsyncGenerator
-from redis.backoff import ExponentialBackoff
-from redis.asyncio.connection import ConnectionPool
-from redis.exceptions import ConnectionError, TimeoutError
 
+from redis.asyncio import Redis
+from redis.asyncio.connection import ConnectionPool
+from redis.backoff import ExponentialBackoff
+from redis.exceptions import ConnectionError, TimeoutError
+from redis.retry import Retry
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -12,9 +12,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-
 from app.core.config import get_settings
-
 
 async_engine: AsyncEngine = create_async_engine(
     url=get_settings().ASYNC_DB_URL,
@@ -51,6 +49,6 @@ A redis client with:
 redis_client: Redis = Redis(connection_pool=redis_pool)
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session() -> AsyncGenerator[AsyncSession]:
     async with async_session() as session:
         yield session

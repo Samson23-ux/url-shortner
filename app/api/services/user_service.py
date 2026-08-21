@@ -1,12 +1,11 @@
 import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 
-
-from app.core.config import get_settings
 from app.api.models.user import User
-from app.api.schemas.user import UserInDB, CachedUser
-from app.api.repo.user_repo import UserRepository
 from app.api.repo.redis_repo import RedisRepository
+from app.api.repo.user_repo import UserRepository
+from app.api.schemas.user import CachedUser, UserInDB
+from app.core.config import get_settings
 from app.core.exceptions import ServerError, UserNotFoundError
 
 

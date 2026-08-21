@@ -1,16 +1,16 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy.orm import Mapped, mapped_column
+from datetime import UTC, datetime
+
 from sqlalchemy import (
-    String,
-    text,
     UUID,
     DateTime,
-    PrimaryKeyConstraint,
-    Index,
     ForeignKey,
+    Index,
+    PrimaryKeyConstraint,
+    String,
+    text,
 )
-
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
 
@@ -33,7 +33,7 @@ class Url(Base):
     shortened_url: Mapped[str] = mapped_column(String, unique=True)
     last_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     expire_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

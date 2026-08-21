@@ -1,30 +1,30 @@
-import pytest_asyncio
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 from uuid import uuid7
-from sqlalchemy import text
-from redis.asyncio import Redis
-from sqlalchemy.pool import NullPool
+
+import pytest_asyncio
 from asgi_lifespan import LifespanManager
-from unittest.mock import patch, AsyncMock
-from datetime import datetime, timezone, timedelta
-from httpx import AsyncClient, ASGITransport, Response
+from httpx import ASGITransport, AsyncClient, Response
+from redis.asyncio import Redis
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
     AsyncEngine,
     AsyncSession,
-    create_async_engine,
-    async_sessionmaker,
-    AsyncConnection,
     AsyncTransaction,
+    async_sessionmaker,
+    create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
-
-from app.main import app
-from app.api.models.otp import Otp
-from app.api.models.base import Base
-from app.core.config import get_settings
 from app.api import models  # noqa: F401
+from app.api.models.base import Base
+from app.api.models.otp import Otp
 from app.api.repo.redis_repo import RedisRepository
 from app.api.services.auth_service import AuthService
-from app.dependencies import get_session, get_auth_service, get_redis_client
+from app.core.config import get_settings
+from app.dependencies import get_auth_service, get_redis_client, get_session
+from app.main import app
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -115,11 +115,10 @@ async def async_client(async_session: AsyncSession, test_redis_client: Redis):
     app.dependency_overrides[get_session] = get_test_session
     app.dependency_overrides[get_redis_client] = lambda: test_redis_client
 
-    async with LifespanManager(app):
-        async with AsyncClient(
-            transport=ASGITransport(app), base_url="http://localhost/api/v1"
-        ) as client:
-            yield client
+    async with LifespanManager(app), AsyncClient(
+        transport=ASGITransport(app), base_url="http://localhost/api/v1"
+    ) as client:
+        yield client
 
     app.dependency_overrides.clear()
 
@@ -165,7 +164,7 @@ async def verify_user(
         user_id=uuid7(),
         purpose="email_signup",
         status="valid",
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+        expires_at=datetime.now(UTC) + timedelta(minutes=15),
     )
 
     otp_payload: dict = {

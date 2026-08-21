@@ -1,17 +1,18 @@
 import enum
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy.orm import Mapped, mapped_column
+from datetime import UTC, datetime
+
 from sqlalchemy import (
-    text,
-    Enum,
     UUID,
-    Index,
-    String,
     DateTime,
+    Enum,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
+    String,
+    text,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
 
@@ -44,7 +45,7 @@ class Otp(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     __table_args__ = (
