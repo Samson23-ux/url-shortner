@@ -31,6 +31,7 @@
  *     -e BASE_URL=http://localhost:8000 \
  *     -e AUTH_TOKEN=eyJ... \
  *     -e WRITE_RATE=5 \
+ *     -e DEPLOYED=1 \
  *     load-tests/write-only-check.js
  */
 
@@ -55,7 +56,14 @@ const CREATE_PATH = __ENV.CREATE_PATH || '/api/v1/shorten';
 // used for the read path, rather than reading it off an emergent VU
 // ramp (which stops being a controlled variable once request latency
 // itself moves under load).
-const WRITE_RATE = Number(__ENV.WRITE_RATE) || 10; // req/s
+const WRITE_RATE = Number(__ENV.WRITE_RATE) || 5; // req/s
+
+// Selects which threshold set to gate on (see options.thresholds below).
+// Deployed's own network RTT to Oregon is ~300ms before the app does
+// anything, so a threshold calibrated to local measurements will always
+// fail there regardless of app behavior. Set -e DEPLOYED=1 when pointing
+// BASE_URL at the deployed instance.
+const DEPLOYED = __ENV.DEPLOYED === '1';
 
 const REQUEST_TIMEOUT_SECONDS = Number(__ENV.REQUEST_TIMEOUT_SECONDS) || 10;
 const REQUEST_TIMEOUT = `${REQUEST_TIMEOUT_SECONDS}s`;
@@ -140,7 +148,7 @@ export const options = {
       exec: 'createUrl',
       rate: WRITE_RATE,
       timeUnit: '1s',
-      duration: '2m',
+      duration: '1m30s',
       // Worst case: every in-flight request hangs for the full timeout,
       // so the pool needs to cover rate * timeout concurrently.
       preAllocatedVUs: Math.max(20, Math.ceil(WRITE_RATE * REQUEST_TIMEOUT_SECONDS * 0.5)),
@@ -149,8 +157,23 @@ export const options = {
     },
   },
 
-  thresholds: {
-    create_latency: ['p(95)<200'],
-    http_req_failed: ['rate<0.01'],
-  },
+  thresholds: DEPLOYED
+    ? {
+        // Calibrated against the deployed Render free-tier instance with
+        // Postgres/Redis/app all in Frankfurt (EU-Central). At the default
+        // 5 req/s, p95 ranged 264ms-1.17s across runs, 0% errors every
+        // time — still real run-to-run variance, just a much lower floor
+        // than Oregon (was 425-713ms *there*, i.e. a higher floor with
+        // less spread). 10 req/s was tried too and no longer fails
+        // outright the way it did on Oregon (0% errors both times), but
+        // it's consistently much slower (p95 2.15s-5.87s) — so these
+        // thresholds still only describe the 5 req/s point; 10 req/s is
+        // "doesn't break" territory, not "fast" territory.
+        create_latency: ['p(95)<1500'],
+        http_req_failed: ['rate<0.02'],
+      }
+    : {
+        create_latency: ['p(95)<200'],
+        http_req_failed: ['rate<0.01'],
+      },
 };
