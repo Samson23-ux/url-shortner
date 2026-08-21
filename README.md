@@ -37,6 +37,12 @@ A URL Shortner API that solves the inconvinience of memorizing long URLs by prov
 - Atomic upsert (`INSERT ... ON CONFLICT`) for URL creation instead of a check-then-insert, removing a race condition and an extra round trip under concurrent writes.
 - Load tested with k6 using constant-arrival-rate scenarios to find real throughput ceilings instead of assuming capacity.
 
+---
+
+[Live API Here](https://url-shortner-1-9opz.onrender.com/docs)
+
+---
+
 ## Steps to Run Application 🚀
 
 ### Prerequisites 📋
