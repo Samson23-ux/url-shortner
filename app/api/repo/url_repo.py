@@ -1,11 +1,10 @@
 from typing import Any
-from sqlalchemy import select, update
+from sqlalchemy import update
 from datetime import datetime, timezone
 from sqlalchemy.dialects.postgresql import insert
 
 
 from app.api.models.url import Url
-from app.api.models.slug import Slug
 from app.api.repo.base import BaseRepository
 from app.api.schemas.url import UrlBase, UrlInDB
 
